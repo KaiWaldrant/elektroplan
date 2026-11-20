@@ -51,9 +51,10 @@
           type="number"
           value={floor.level}
           onchange={(e) => {
-            const text = (e.target as HTMLInputElement).value;
-            const v = text.trim() === '' ? 0 : parseDecimal(text); // an emptied field means ground level
-            if (v !== null) store.mutateFloor((f) => (f.level = v));
+            const input = e.target as HTMLInputElement;
+            const v = input.value.trim() === '' ? 0 : parseDecimal(input.value); // an emptied field means ground level
+            if (v !== null && v !== floor.level) store.mutateFloor((f) => (f.level = v));
+            input.value = String(floor.level); // also when nothing changed, so the field never stays empty or invalid
           }}
         />
         cm
