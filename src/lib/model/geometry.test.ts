@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   atLength,
+  backgroundCorners,
   backgroundExtent,
   calibrate,
   dist,
@@ -10,6 +11,7 @@ import {
   pdfCmPerPx,
   projectOnSegment,
   snapAngle,
+  wallNormal,
   wallPolygon,
   withLength,
 } from './geometry';
@@ -115,5 +117,23 @@ describe('pdfCmPerPx / formatLength', () => {
 describe('backgroundExtent', () => {
   it('gives the plan size in cm from its pixel size and scale', () => {
     expect(backgroundExtent(bg({ widthPx: 1000, heightPx: 800, cmPerPx: 2.5 }))).toEqual({ width: 2500, height: 2000 });
+  });
+});
+
+describe('backgroundCorners', () => {
+  it('gives the top-left and bottom-right corner in world cm', () => {
+    const corners = backgroundCorners(bg({ widthPx: 1000, heightPx: 800, cmPerPx: 2, offset: { x: -50, y: 10 } }));
+    expect(corners).toEqual([{ x: -50, y: 10 }, { x: 1950, y: 1610 }]);
+  });
+});
+
+describe('wallNormal', () => {
+  it('is the unit vector perpendicular to the wall', () => {
+    const n1 = wallNormal({ id: 'w', a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, thickness: 10 });
+    expect(n1.x).toBeCloseTo(0);
+    expect(n1.y).toBeCloseTo(1);
+    const n2 = wallNormal({ id: 'w', a: { x: 0, y: 0 }, b: { x: 0, y: 50 }, thickness: 10 });
+    expect(n2.x).toBeCloseTo(-1);
+    expect(n2.y).toBeCloseTo(0);
   });
 });

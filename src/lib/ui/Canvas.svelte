@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import {
     atLength,
+    backgroundCorners,
     backgroundExtent,
     bounds,
     calibrate,
@@ -14,17 +15,17 @@
     wallNormal,
     wallPolygon,
   } from '../model/geometry';
-  import { parseDecimal } from '../model/numbers';
-  import { connectedEnds, moveEnds, selectedWall as findSelectedWall, translateWall } from '../model/walls';
+  import { parsePositiveDecimal } from '../model/numbers';
+  import { connectedEnds, includesEnd, moveEnds, selectedWall, translateWall } from '../model/walls';
   import { uid } from '../model/project';
-  import type { Point, Wall, WallEnd } from '../model/types';
+  import type { Id, Point, Wall, WallEnd } from '../model/types';
   import { store } from '../state/store.svelte';
   import NumberDialog from './NumberDialog.svelte';
 
   type Drag =
     | { kind: 'pan'; sx: number; sy: number; vx: number; vy: number }
     | { kind: 'end'; ends: WallEnd[]; moved: boolean }
-    | { kind: 'wall'; wallId: string; start: Point; walls: Wall[]; moved: boolean };
+    | { kind: 'wall'; wallId: Id; pointerStart: Point; wallsAtStart: Wall[]; moved: boolean };
 
   const SNAP_PX = 10;
 
@@ -47,7 +48,7 @@
   let drag: Drag | null = null;
   let spaceDown = false;
 
-  const selectedWall = $derived(findSelectedWall(floor, store.selection));
+  const activeWall = $derived(selectedWall(floor, store.selection));
   const bgExtent = $derived(bg ? backgroundExtent(bg) : null);
 
   // ---------------------------------------------------------------- view
@@ -58,7 +59,7 @@
 
   function fit() {
     const pts = floor.walls.flatMap((x) => [x.a, x.b]);
-    if (bg && bgExtent) pts.push(bg.offset, { x: bg.offset.x + bgExtent.width, y: bg.offset.y + bgExtent.height });
+    if (bg) pts.push(...backgroundCorners(bg));
     const b = bounds(pts) ?? { min: { x: 0, y: 0 }, max: { x: 1000, y: 800 } };
     const bw = Math.max(b.max.x - b.min.x, 100);
     const bh = Math.max(b.max.y - b.min.y, 100);
@@ -89,8 +90,8 @@
     const tol = SNAP_PX * px;
     const ends: Point[] = [];
     for (const wl of floor.walls) {
-      if (!exclude.some((r) => r.wallId === wl.id && r.end === 'a')) ends.push(wl.a);
-      if (!exclude.some((r) => r.wallId === wl.id && r.end === 'b')) ends.push(wl.b);
+      if (!includesEnd(exclude, wl.id, 'a')) ends.push(wl.a);
+      if (!includesEnd(exclude, wl.id, 'b')) ends.push(wl.b);
     }
     const near = nearestPoint(ends, p, tol);
     if (near) {
@@ -116,8 +117,7 @@
 
   // ---------------------------------------------------------------- wall drawing
   function typedLength(): number | null {
-    const v = parseDecimal(lengthInput);
-    return v !== null && v > 0 ? v : null;
+    return parsePositiveDecimal(lengthInput);
   }
 
   function wallTarget(s: Point): Point {
@@ -167,10 +167,10 @@
         break;
       }
       case 'select': {
-        if (selectedWall) {
+        if (activeWall) {
           for (const end of ['a', 'b'] as const) {
-            if (dist(selectedWall[end], p) <= SNAP_PX * px) {
-              drag = { kind: 'end', ends: connectedEnds(floor.walls, selectedWall[end]), moved: false };
+            if (dist(activeWall[end], p) <= SNAP_PX * px) {
+              drag = { kind: 'end', ends: connectedEnds(floor.walls, activeWall[end]), moved: false };
               svg.setPointerCapture(e.pointerId);
               return;
             }
@@ -180,7 +180,7 @@
         if (i >= 0) {
           const wl = floor.walls[i];
           store.selection = { kind: 'wall', id: wl.id };
-          drag = { kind: 'wall', wallId: wl.id, start: p, walls: $state.snapshot(floor.walls) as Wall[], moved: false };
+          drag = { kind: 'wall', wallId: wl.id, pointerStart: p, wallsAtStart: $state.snapshot(floor.walls) as Wall[], moved: false };
           svg.setPointerCapture(e.pointerId);
         } else {
           store.selection = null;
@@ -214,14 +214,14 @@
       return;
     }
     if (d?.kind === 'wall') {
-      const dx = Math.round(p.x - d.start.x);
-      const dy = Math.round(p.y - d.start.y);
+      const dx = Math.round(p.x - d.pointerStart.x);
+      const dy = Math.round(p.y - d.pointerStart.y);
       if (!d.moved && Math.hypot(dx, dy) * view.zoom < 3) return;
       if (!d.moved) {
         store.checkpoint();
         d.moved = true;
       }
-      store.applyFloor((f) => translateWall(f.walls, d.walls, d.wallId, dx, dy));
+      store.applyFloor((f) => translateWall(f.walls, d.wallsAtStart, d.wallId, dx, dy));
       return;
     }
     if (store.tool === 'wall') {
@@ -365,7 +365,7 @@
     {/if}
 
     {#each floor.walls as wl (wl.id)}
-      <polygon points={pts(wallPolygon(wl))} class="wall" class:selected={wl.id === selectedWall?.id} />
+      <polygon points={pts(wallPolygon(wl))} class="wall" class:selected={wl.id === activeWall?.id} />
     {/each}
 
     {#each floor.walls as wl (wl.id)}
@@ -377,8 +377,8 @@
       {/if}
     {/each}
 
-    {#if selectedWall}
-      {#each [selectedWall.a, selectedWall.b] as e, k (k)}
+    {#if activeWall}
+      {#each [activeWall.a, activeWall.b] as e, k (k)}
         <circle cx={e.x} cy={e.y} r={5 * px} class="handle" stroke-width={1.5 * px} />
       {/each}
     {/if}

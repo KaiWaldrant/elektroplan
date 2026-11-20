@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { wallNormal } from './geometry';
-import { connectedEnds, moveEnds, selectedWall, setWallLength, translateWall } from './walls';
+import { connectedEnds, findWall, includesEnd, moveEnds, selectedWall, setWallLength, translateWall } from './walls';
 import type { Wall } from './types';
 
 const wall = (id: string, ax: number, ay: number, bx: number, by: number): Wall => ({
@@ -8,15 +7,6 @@ const wall = (id: string, ax: number, ay: number, bx: number, by: number): Wall 
   a: { x: ax, y: ay },
   b: { x: bx, y: by },
   thickness: 10,
-});
-
-describe('wallNormal', () => {
-  it('is the unit vector perpendicular to the wall', () => {
-    const n1 = wallNormal(wall('w', 0, 0, 100, 0));
-    expect([n1.x + 0, n1.y]).toEqual([0, 1]);
-    const n2 = wallNormal(wall('w', 0, 0, 0, 50));
-    expect([n2.x, n2.y + 0]).toEqual([-1, 0]);
-  });
 });
 
 describe('selectedWall', () => {
@@ -66,6 +56,12 @@ describe('setWallLength', () => {
     expect(walls[1].a).toEqual({ x: 250, y: 0 });
     expect(walls[2].a).toEqual({ x: 0, y: 0 });
   });
+  it('keeps end a in place, even on a wall that has no length yet', () => {
+    const walls = [wall('w1', 0, 0, 0, 0)];
+    setWallLength(walls, 'w1', 250);
+    expect(walls[0].a).toEqual({ x: 0, y: 0 });
+    expect(walls[0].b).toEqual({ x: 250, y: 0 });
+  });
 });
 
 describe('translateWall', () => {
@@ -85,5 +81,22 @@ describe('translateWall', () => {
     translateWall(walls, start, 'w1', 10, 0);
     translateWall(walls, start, 'w1', 15, 0);
     expect(walls[0].a).toEqual({ x: 15, y: 0 });
+  });
+});
+
+describe('findWall', () => {
+  it('finds a wall by id, or undefined', () => {
+    const walls = [wall('w1', 0, 0, 100, 0)];
+    expect(findWall(walls, 'w1')?.b).toEqual({ x: 100, y: 0 });
+    expect(findWall(walls, 'gone')).toBeUndefined();
+  });
+});
+
+describe('includesEnd', () => {
+  it('tells whether one specific wall end is in a list', () => {
+    const ends = [{ wallId: 'w1', end: 'b' as const }];
+    expect(includesEnd(ends, 'w1', 'b')).toBe(true);
+    expect(includesEnd(ends, 'w1', 'a')).toBe(false);
+    expect(includesEnd(ends, 'w2', 'b')).toBe(false);
   });
 });

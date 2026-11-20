@@ -3,7 +3,6 @@ import type { Background, Floor, Id, Project, Selection } from '../model/types';
 import { getBlob, loadLastProject, putBlob, saveProject } from '../storage/idb';
 
 export type Tool = 'select' | 'wall' | 'calibrate' | 'measure';
-export type { Selection } from '../model/types';
 
 const HISTORY_LIMIT = 200;
 
@@ -196,8 +195,7 @@ class Store {
     const key = uid();
     await putBlob(key, blob);
     this.imageUrls[key] = URL.createObjectURL(blob);
-    const floorId = this.activeFloorId;
-    this.mutate((p) => onFloor(p, floorId, (f) => (f.background = { ...bg, blobKey: key })));
+    this.mutateFloor((f) => (f.background = { ...bg, blobKey: key }));
     this.fitRequest++;
   }
 }

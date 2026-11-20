@@ -1,7 +1,7 @@
 <script lang="ts">
   import { dist } from '../model/geometry';
-  import { formatDecimal, parseDecimal } from '../model/numbers';
-  import { selectedWall, setWallLength as applyWallLength } from '../model/walls';
+  import { formatDecimal, parseDecimal, parsePositiveDecimal } from '../model/numbers';
+  import { findWall, selectedWall, setWallLength } from '../model/walls';
   import { store } from '../state/store.svelte';
   import NumberDialog from './NumberDialog.svelte';
 
@@ -10,9 +10,9 @@
   const wall = $derived(selectedWall(floor, store.selection));
   let lengthDialog = $state(false);
 
-  function setWallLength(len: number) {
+  function confirmWallLength(len: number) {
     const id = wall?.id;
-    if (id) store.mutateFloor((f) => applyWallLength(f.walls, id, len));
+    if (id) store.mutateFloor((f) => setWallLength(f.walls, id, len));
     lengthDialog = false;
   }
 
@@ -51,7 +51,8 @@
           type="number"
           value={floor.level}
           onchange={(e) => {
-            const v = num(e);
+            const text = (e.target as HTMLInputElement).value;
+            const v = text.trim() === '' ? 0 : parseDecimal(text); // an emptied field means ground level
             if (v !== null) store.mutateFloor((f) => (f.level = v));
           }}
         />
@@ -119,9 +120,13 @@
             min="1"
             value={wall.thickness}
             onchange={(e) => {
-              const v = num(e);
+              const v = parsePositiveDecimal((e.target as HTMLInputElement).value);
               const id = wall?.id;
-              if (v && v > 0) store.mutateFloor((f) => { const w = f.walls.find((x) => x.id === id); if (w) w.thickness = v; });
+              if (v !== null && id)
+                store.mutateFloor((f) => {
+                  const w = findWall(f.walls, id);
+                  if (w) w.thickness = v;
+                });
             }}
           />
           cm
@@ -143,7 +148,7 @@
     title="Muurlengte"
     label="Nieuwe lengte (beginpunt blijft staan)"
     value={Math.round(dist(wall.a, wall.b))}
-    onconfirm={setWallLength}
+    onconfirm={confirmWallLength}
     oncancel={() => (lengthDialog = false)}
   />
 {/if}

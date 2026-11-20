@@ -9,3 +9,9 @@ export function parseDecimal(text: string): number | null {
 export function formatDecimal(n: number, digits: number): string {
   return n.toFixed(digits).replace('.', ',');
 }
+
+/** Like parseDecimal, but only numbers above zero (lengths, thicknesses). */
+export function parsePositiveDecimal(text: string): number | null {
+  const v = parseDecimal(text);
+  return v !== null && v > 0 ? v : null;
+}

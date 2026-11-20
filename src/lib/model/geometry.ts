@@ -122,3 +122,9 @@ export function wallNormal(w: Wall): Point {
   const len = dist(w.a, w.b) || 1;
   return { x: -(w.b.y - w.a.y) / len, y: (w.b.x - w.a.x) / len };
 }
+
+/** Top-left and bottom-right corner of the plan background in world cm. */
+export function backgroundCorners(bg: Background): [Point, Point] {
+  const { width, height } = backgroundExtent(bg);
+  return [{ ...bg.offset }, { x: bg.offset.x + width, y: bg.offset.y + height }];
+}
