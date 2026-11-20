@@ -1,34 +1,33 @@
 /** Render a PDF page to a PNG, fully in the browser. The pdf.js worker is bundled; nothing is fetched. */
 import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import type { SizePx } from '../model/types';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
 export const PDF_DPI = 200;
 
 /** Open a PDF from memory. Returns the loading task (to destroy afterwards) and the document. */
-async function open(data: ArrayBuffer) {
+async function loadPdf(data: ArrayBuffer) {
   // copy: pdf.js transfers (detaches) the buffer it gets
   const task = getDocument({ data: new Uint8Array(data.slice(0)), disableFontFace: true });
   return { task, doc: await task.promise };
 }
 
 export async function pdfPageCount(data: ArrayBuffer): Promise<number> {
-  const { task, doc } = await open(data);
+  const { task, doc } = await loadPdf(data);
   const n = doc.numPages;
   await task.destroy();
   return n;
 }
 
-export interface RenderedPage {
+export interface RenderedPage extends SizePx {
   blob: Blob;
-  widthPx: number;
-  heightPx: number;
   dpi: number;
 }
 
 export async function renderPdfPage(data: ArrayBuffer, pageNo: number, dpi = PDF_DPI): Promise<RenderedPage> {
-  const { task, doc } = await open(data);
+  const { task, doc } = await loadPdf(data);
   try {
     const page = await doc.getPage(pageNo);
     const viewport = page.getViewport({ scale: dpi / 72 });
@@ -47,9 +46,9 @@ export async function renderPdfPage(data: ArrayBuffer, pageNo: number, dpi = PDF
   }
 }
 
-export async function imageSize(blob: Blob): Promise<{ widthPx: number; heightPx: number }> {
+export async function imageSize(blob: Blob): Promise<SizePx> {
   const bmp = await createImageBitmap(blob);
-  const r = { widthPx: bmp.width, heightPx: bmp.height };
+  const r: SizePx = { widthPx: bmp.width, heightPx: bmp.height };
   bmp.close();
   return r;
 }

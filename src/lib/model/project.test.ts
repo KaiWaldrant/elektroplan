@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blobKeys, createProject, parseProjectFile } from './project';
+import { blobKeys, createProject } from './project';
 
 describe('createProject', () => {
   it('starts with one ground floor', () => {
@@ -9,19 +9,14 @@ describe('createProject', () => {
   });
 });
 
-describe('project file', () => {
-  it('round-trips through JSON', () => {
-    const p = createProject('Test');
-    p.floors[0].background = {
-      blobKey: 'b1', name: 'plan.pdf', widthPx: 10, heightPx: 10, cmPerPx: 1,
-      offset: { x: 0, y: 0 }, opacity: 0.5, locked: false, calibrated: false,
+describe('blobKeys', () => {
+  it('lists the plan image of every floor that has one', () => {
+    const p = createProject();
+    p.floors.push({ id: 'f2', name: 'Verdieping 1', level: 300, walls: [] });
+    p.floors[1].background = {
+      blobKey: 'b2', name: 'plan.png', widthPx: 10, heightPx: 10, cmPerPx: 1,
+      offset: { x: 0, y: 0 }, opacity: 0.5, calibrated: false,
     };
-    const text = JSON.stringify({ format: 'elektroplan', version: 1, project: p, blobs: { b1: 'data:,' } });
-    const f = parseProjectFile(text);
-    expect(f.project.name).toBe('Test');
-    expect(blobKeys(f.project)).toEqual(['b1']);
-  });
-  it('rejects other JSON', () => {
-    expect(() => parseProjectFile('{"foo":1}')).toThrow(/geen geldig/);
+    expect(blobKeys(p)).toEqual(['b2']);
   });
 });

@@ -19,7 +19,7 @@ function db(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
-async function run<T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest): Promise<T> {
+async function request<T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest): Promise<T> {
   const d = await db();
   return new Promise<T>((resolve, reject) => {
     const tx = d.transaction(store, mode);
@@ -30,15 +30,17 @@ async function run<T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObject
 }
 
 export const saveProject = async (p: Project) => {
-  await run('projects', 'readwrite', (s) => s.put(p, p.id));
-  await run('meta', 'readwrite', (s) => s.put(p.id, 'lastProjectId'));
+  await request('projects', 'readwrite', (s) => s.put(p, p.id));
+  await request('meta', 'readwrite', (s) => s.put(p.id, 'lastProjectId'));
 };
 
 export async function loadLastProject(): Promise<Project | null> {
-  const id = await run<Id | undefined>('meta', 'readonly', (s) => s.get('lastProjectId'));
+  const id = await request<Id | undefined>('meta', 'readonly', (s) => s.get('lastProjectId'));
   if (!id) return null;
-  return (await run<Project | undefined>('projects', 'readonly', (s) => s.get(id))) ?? null;
+  return (await request<Project | undefined>('projects', 'readonly', (s) => s.get(id))) ?? null;
 }
 
-export const putBlob = (key: Id, blob: Blob) => run('blobs', 'readwrite', (s) => s.put(blob, key));
-export const getBlob = (key: Id) => run<Blob | undefined>('blobs', 'readonly', (s) => s.get(key));
+export const putBlob = async (key: Id, blob: Blob): Promise<void> => {
+  await request('blobs', 'readwrite', (s) => s.put(blob, key));
+};
+export const getBlob = (key: Id) => request<Blob | undefined>('blobs', 'readonly', (s) => s.get(key));

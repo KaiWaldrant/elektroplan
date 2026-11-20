@@ -1,15 +1,15 @@
 <script lang="ts">
   import { parsePositiveDecimal } from '../model/numbers';
+  import Dialog from './Dialog.svelte';
 
   interface Props {
     title: string;
     label: string;
     value?: number;
-    unit?: string;
     onconfirm: (value: number) => void;
     oncancel: () => void;
   }
-  let { title, label, value = undefined, unit = 'cm', onconfirm, oncancel }: Props = $props();
+  let { title, label, value = undefined, onconfirm, oncancel }: Props = $props();
   // svelte-ignore state_referenced_locally
   let text = $state(value?.toString() ?? ''); // initial value only, on purpose
   let input: HTMLInputElement;
@@ -20,25 +20,17 @@
     input?.select();
   });
 
-  function submit(e: SubmitEvent) {
-    e.preventDefault();
+  function submit() {
     if (parsed !== null) onconfirm(parsed);
   }
 </script>
 
-<div class="backdrop" role="presentation" onclick={oncancel}></div>
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<form class="dialog" onsubmit={submit} onkeydown={(e) => e.key === 'Escape' && oncancel()}>
-  <h2>{title}</h2>
+<Dialog {title} okDisabled={parsed === null} onsubmit={submit} {oncancel}>
   <label>
     {label}
     <span class="row">
       <input bind:this={input} bind:value={text} inputmode="decimal" />
-      <span>{unit}</span>
+      <span>cm</span>
     </span>
   </label>
-  <div class="buttons">
-    <button type="button" onclick={oncancel}>Annuleren</button>
-    <button type="submit" class="primary" disabled={parsed === null}>OK</button>
-  </div>
-</form>
+</Dialog>

@@ -16,7 +16,7 @@
     lengthDialog = false;
   }
 
-  function num(e: Event): number | null {
+  function inputNumber(e: Event): number | null {
     return parseDecimal((e.target as HTMLInputElement).value);
   }
 </script>
@@ -87,7 +87,7 @@
           value={bg.opacity}
           onpointerdown={() => store.checkpoint()}
           oninput={(e) => {
-            const v = num(e);
+            const v = inputNumber(e);
             if (v !== null) store.applyFloor((f) => f.background && (f.background.opacity = v));
           }}
         />
