@@ -161,6 +161,7 @@
   <NumberDialog
     title="Kalibreren"
     label="Werkelijke afstand tussen de twee punten"
+    note={floor.walls.length > 0 ? 'De muren op deze verdieping schalen mee.' : undefined}
     onconfirm={(realCm) => tools.calibrate.confirmDistance(realCm)}
     oncancel={() => tools.calibrate.cancel()}
   />

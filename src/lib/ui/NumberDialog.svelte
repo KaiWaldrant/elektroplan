@@ -5,11 +5,13 @@
   interface Props {
     title: string;
     label: string;
+    /** Extra explanation under the input, if any. */
+    note?: string;
     value?: number;
     onconfirm: (value: number) => void;
     oncancel: () => void;
   }
-  let { title, label, value = undefined, onconfirm, oncancel }: Props = $props();
+  let { title, label, note = undefined, value = undefined, onconfirm, oncancel }: Props = $props();
   // svelte-ignore state_referenced_locally
   let text = $state(value?.toString() ?? ''); // initial value only, on purpose
   let input: HTMLInputElement;
@@ -33,4 +35,5 @@
       <span>cm</span>
     </span>
   </label>
+  {#if note}<p class="muted">{note}</p>{/if}
 </Dialog>

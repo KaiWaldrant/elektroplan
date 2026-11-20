@@ -1,4 +1,4 @@
-import { calibrate } from '../../../model/geometry';
+import { calibrateFloor } from '../../../model/calibration';
 import type { Point } from '../../../model/types';
 import { store } from '../../../state/store.svelte';
 import { snapPointer } from './snapPointer';
@@ -50,12 +50,13 @@ export class PickTool implements CanvasTool {
     this.askingDistance = false;
   }
 
-  /** Calibrate: scale the background so the two picked points are `realCm` apart, then go back to selecting. */
+  /**
+   * Calibrate: scale the background so the two picked points are `realCm` apart, moving the walls
+   * with it (ADR 0004), then go back to selecting.
+   */
   confirmDistance(realCm: number) {
     const [p1, p2] = this.picks;
-    if (store.floor.background && p1 && p2) {
-      store.mutateFloor((f) => f.background && (f.background = calibrate(f.background, p1, p2, realCm)));
-    }
+    if (store.floor.background && p1 && p2) store.mutateFloor((f) => calibrateFloor(f, p1, p2, realCm));
     this.cancel();
     store.tool = 'select';
   }
