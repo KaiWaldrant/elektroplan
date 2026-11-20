@@ -1,3 +1,5 @@
+import { removeDevice, removeFloor } from '../model/devices';
+import { migrateProject } from '../model/migrate';
 import { blobKeys, createFloor, createProject, uid } from '../model/project';
 import type { Background, Floor, Id, Point, Project, Selection } from '../model/types';
 import { getBlob, loadLastProject, putBlob, saveProject } from '../storage/idb';
@@ -99,7 +101,7 @@ class Store {
   // ---------------------------------------------------------------- project lifecycle
   async loadLast() {
     const p = await loadLastProject();
-    if (p) await this.setProject(p);
+    if (p) await this.setProject(migrateProject(p));
   }
 
   async setProject(p: Project) {
@@ -144,6 +146,7 @@ class Store {
   removeSelection() {
     const sel = this.selection;
     if (sel?.kind === 'wall') this.mutateFloor((f) => (f.walls = f.walls.filter((w) => w.id !== sel.id)));
+    if (sel?.kind === 'device') this.mutate((p) => removeDevice(p, sel.id));
     this.selection = null;
   }
 
@@ -157,7 +160,7 @@ class Store {
 
   removeFloor(id: Id) {
     if (this.project.floors.length <= 1) return;
-    this.mutate((p) => (p.floors = p.floors.filter((f) => f.id !== id)));
+    this.mutate((p) => removeFloor(p, id));
     if (this.activeFloorId === id) this.activeFloorId = this.project.floors[0].id;
     this.selection = null;
   }

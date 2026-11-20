@@ -4,6 +4,8 @@
   import { findWall, selectedWall, setWallLength } from '../model/walls';
   import { store } from '../state/store.svelte';
   import NumberDialog from './NumberDialog.svelte';
+  import { DEVICE_DRAG_TYPE } from './canvas/deviceDrag';
+  import LightPointSymbol from './symbols/LightPointSymbol.svelte';
 
   const floor = $derived(store.floor);
   const bg = $derived(floor.background);
@@ -68,6 +70,30 @@
         Verdieping verwijderen
       </button>
     {/if}
+  </section>
+
+  <section>
+    <h3>Toestellen</h3>
+    {#if store.selection?.kind === 'device'}
+      <p>Geselecteerd: <strong>Lichtpunt</strong></p>
+      <button class="danger" onclick={() => store.removeSelection()}>Toestel verwijderen <kbd>Del</kbd></button>
+    {/if}
+    <p class="muted">Sleep een Toestel op het plan.</p>
+    <div
+      class="palette-item"
+      draggable="true"
+      role="button"
+      tabindex="-1"
+      ondragstart={(e) => {
+        e.dataTransfer?.setData(DEVICE_DRAG_TYPE, 'lightPoint');
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
+      }}
+    >
+      <svg viewBox="-20 -20 40 40" width="20" height="20" aria-hidden="true">
+        <LightPointSymbol at={{ x: 0, y: 0 }} />
+      </svg>
+      Lichtpunt
+    </div>
   </section>
 
   <section>
@@ -153,3 +179,20 @@
     oncancel={() => (lengthDialog = false)}
   />
 {/if}
+
+<style>
+  .palette-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: grab;
+    user-select: none;
+  }
+  .palette-item svg {
+    stroke: currentColor;
+    stroke-width: 3;
+  }
+</style>

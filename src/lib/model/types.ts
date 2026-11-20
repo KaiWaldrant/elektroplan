@@ -42,17 +42,37 @@ export interface Floor {
   walls: Wall[];
 }
 
+/** Where a Toestel sits on a Verdieping's plan. */
+export interface Placement {
+  floorId: Id;
+  /** Centre of the symbol, in world cm. */
+  at: Point;
+}
+
+/** A Toestel. Only the Lichtpunt exists so far (#10); more types follow in #11. */
+export interface Device {
+  id: Id;
+  type: 'lightPoint';
+  /** Absent when the Toestel is not on any plan (yet). */
+  placement?: Placement;
+}
+
+/** Current version of the project data; older projects are migrated on load (see migrate.ts). */
+export const PROJECT_VERSION = 2;
+
 export interface Project {
-  version: 1;
+  version: typeof PROJECT_VERSION;
   id: Id;
   name: string;
   floors: Floor[];
+  /** All Toestellen of the project, placed or not. */
+  devices: Device[];
   createdAt: string;
   updatedAt: string;
 }
 
 /** What the user has selected on the canvas. */
-export type Selection = { kind: 'wall'; id: Id } | null;
+export type Selection = { kind: 'wall'; id: Id } | { kind: 'device'; id: Id } | null;
 
 /** One end of a wall, referenced by the wall's id. */
 export interface WallEnd {

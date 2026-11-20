@@ -1,3 +1,4 @@
+import { hitDevice, moveDevice, SYMBOL_CM } from '../../../model/devices';
 import { dist, hitWall } from '../../../model/geometry';
 import { connectedEnds, moveEnds, selectedWall, translateWall } from '../../../model/walls';
 import type { Id, Point, Wall, WallEnd } from '../../../model/types';
@@ -9,19 +10,21 @@ type Drag =
   /** Dragging a selected wall's end, together with the wall ends joined to it. */
   | { kind: 'end'; ends: WallEnd[]; moved: boolean }
   /** Dragging a whole wall. */
-  | { kind: 'wall'; wallId: Id; pointerStart: Point; wallsAtStart: Wall[]; moved: boolean };
+  | { kind: 'wall'; wallId: Id; pointerStart: Point; wallsAtStart: Wall[]; moved: boolean }
+  /** Dragging a Toestel. */
+  | { kind: 'device'; deviceId: Id; pointerStart: Point; atStart: Point; moved: boolean };
 
 /** Extra screen px around a wall that still counts as a click on it. */
 const HIT_PX = 4;
 /** Screen px a wall must be dragged before it moves (so a click doesn't nudge it). */
 const DRAG_START_PX = 3;
 
-/** Selects walls and drags them or their ends; a press on empty canvas pans. */
+/** Selects Toestellen and walls and drags them (or a selected wall's ends); a press on empty canvas pans. */
 export class SelectTool implements CanvasTool {
   private drag: Drag | null = null;
 
   readonly hint =
-    'Klik een muur om te selecteren; sleep om te verplaatsen. Sleep de achtergrond of gebruik het muiswiel om te pannen/zoomen.';
+    'Klik een muur of Toestel om te selecteren; sleep om te verplaatsen. Sleep de achtergrond of gebruik het muiswiel om te pannen/zoomen.';
   readonly snapMark = null;
 
   pointerDown(p: CanvasPointer): PressResult {
@@ -34,6 +37,18 @@ export class SelectTool implements CanvasTool {
           return 'capture';
         }
       }
+    }
+    const device = hitDevice(store.project.devices, store.floor.id, p.world, SYMBOL_CM / 2 + HIT_PX * p.cmPerScreenPx);
+    if (device?.placement) {
+      store.selection = { kind: 'device', id: device.id };
+      this.drag = {
+        kind: 'device',
+        deviceId: device.id,
+        pointerStart: p.world,
+        atStart: { ...device.placement.at },
+        moved: false,
+      };
+      return 'capture';
     }
     const i = hitWall(walls, p.world, HIT_PX * p.cmPerScreenPx);
     if (i < 0) {
@@ -64,6 +79,12 @@ export class SelectTool implements CanvasTool {
       if (!d.moved && Math.hypot(dx, dy) / p.cmPerScreenPx < DRAG_START_PX) return;
       this.startMoving(d);
       store.applyFloor((f) => translateWall(f.walls, d.wallsAtStart, d.wallId, dx, dy));
+    } else if (d?.kind === 'device') {
+      const dx = p.world.x - d.pointerStart.x;
+      const dy = p.world.y - d.pointerStart.y;
+      if (!d.moved && Math.hypot(dx, dy) / p.cmPerScreenPx < DRAG_START_PX) return;
+      this.startMoving(d);
+      store.apply((pr) => moveDevice(pr.devices, d.deviceId, { x: d.atStart.x + dx, y: d.atStart.y + dy }));
     }
   }
 
