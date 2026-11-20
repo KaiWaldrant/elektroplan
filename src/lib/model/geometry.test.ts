@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   atLength,
+  backgroundExtent,
   calibrate,
   dist,
   formatLength,
@@ -108,5 +109,11 @@ describe('pdfCmPerPx / formatLength', () => {
   it('formats lengths in Belgian notation', () => {
     expect(formatLength(368)).toBe('3,68 m');
     expect(formatLength(45)).toBe('45 cm');
+  });
+});
+
+describe('backgroundExtent', () => {
+  it('gives the plan size in cm from its pixel size and scale', () => {
+    expect(backgroundExtent(bg({ widthPx: 1000, heightPx: 800, cmPerPx: 2.5 }))).toEqual({ width: 2500, height: 2000 });
   });
 });

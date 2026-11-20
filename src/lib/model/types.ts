@@ -47,3 +47,12 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
 }
+
+/** What the user has selected on the canvas. */
+export type Selection = { kind: 'wall'; id: Id } | null;
+
+/** One end of a wall, referenced by the wall's id. */
+export interface WallEnd {
+  wallId: Id;
+  end: 'a' | 'b';
+}

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { parseDecimal } from '../model/numbers';
+
   interface Props {
     title: string;
     label: string;
@@ -11,8 +13,8 @@
   // svelte-ignore state_referenced_locally
   let text = $state(value?.toString() ?? ''); // initial value only, on purpose
   let input: HTMLInputElement;
-  const parsed = $derived(Number(text.replace(',', '.')));
-  const valid = $derived(text.trim() !== '' && Number.isFinite(parsed) && parsed > 0);
+  const parsed = $derived(parseDecimal(text));
+  const valid = $derived(parsed !== null && parsed > 0);
 
   $effect(() => {
     input?.focus();
@@ -21,7 +23,7 @@
 
   function submit(e: SubmitEvent) {
     e.preventDefault();
-    if (valid) onconfirm(parsed);
+    if (valid && parsed !== null) onconfirm(parsed);
   }
 </script>
 

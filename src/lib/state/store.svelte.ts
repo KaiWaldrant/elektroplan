@@ -1,11 +1,17 @@
 import { blobKeys, createFloor, createProject, parseProjectFile, uid, type ProjectFile } from '../model/project';
-import type { Background, Floor, Id, Project } from '../model/types';
+import type { Background, Floor, Id, Project, Selection } from '../model/types';
 import { getBlob, loadLastProject, putBlob, saveProject } from '../storage/idb';
 
 export type Tool = 'select' | 'wall' | 'calibrate' | 'measure';
-export type Selection = { kind: 'wall'; id: Id } | null;
+export type { Selection } from '../model/types';
 
 const HISTORY_LIMIT = 200;
+
+/** Run `fn` on one floor of the project, if it still exists. */
+function onFloor(p: Project, floorId: Id, fn: (f: Floor) => void) {
+  const f = p.floors.find((x) => x.id === floorId);
+  if (f) fn(f);
+}
 
 class Store {
   project = $state<Project>(createProject());
@@ -44,9 +50,14 @@ class Store {
     this.apply(fn);
   }
 
+  /** The project as a JSON string, for the undo history. */
+  private snapshot(): string {
+    return JSON.stringify($state.snapshot(this.project));
+  }
+
   /** Record an undo point without changing anything (e.g. at the start of a drag). */
   checkpoint() {
-    this.past.push(JSON.stringify($state.snapshot(this.project)));
+    this.past.push(this.snapshot());
     if (this.past.length > HISTORY_LIMIT) this.past.shift();
     this.future = [];
     this.syncHistoryFlags();
@@ -62,14 +73,14 @@ class Store {
   undo() {
     const prev = this.past.pop();
     if (!prev) return;
-    this.future.push(JSON.stringify($state.snapshot(this.project)));
+    this.future.push(this.snapshot());
     this.restore(prev);
   }
 
   redo() {
     const next = this.future.pop();
     if (!next) return;
-    this.past.push(JSON.stringify($state.snapshot(this.project)));
+    this.past.push(this.snapshot());
     this.restore(next);
   }
 
@@ -146,18 +157,12 @@ class Store {
   /** mutate() scoped to the active floor. */
   mutateFloor(fn: (f: Floor) => void) {
     const id = this.activeFloorId;
-    this.mutate((p) => {
-      const f = p.floors.find((x) => x.id === id);
-      if (f) fn(f);
-    });
+    this.mutate((p) => onFloor(p, id, fn));
   }
 
   applyFloor(fn: (f: Floor) => void) {
     const id = this.activeFloorId;
-    this.apply((p) => {
-      const f = p.floors.find((x) => x.id === id);
-      if (f) fn(f);
-    });
+    this.apply((p) => onFloor(p, id, fn));
   }
 
   removeSelection() {
@@ -192,10 +197,7 @@ class Store {
     await putBlob(key, blob);
     this.imageUrls[key] = URL.createObjectURL(blob);
     const floorId = this.activeFloorId;
-    this.mutate((p) => {
-      const f = p.floors.find((x) => x.id === floorId);
-      if (f) f.background = { ...bg, blobKey: key };
-    });
+    this.mutate((p) => onFloor(p, floorId, (f) => (f.background = { ...bg, blobKey: key })));
     this.fitRequest++;
   }
 }

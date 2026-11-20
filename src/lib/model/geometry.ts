@@ -1,3 +1,4 @@
+import { formatDecimal } from './numbers';
 import type { Background, Point, Wall } from './types';
 
 export const dist = (a: Point, b: Point): number => Math.hypot(b.x - a.x, b.y - a.y);
@@ -67,9 +68,9 @@ export function hitWall(walls: Wall[], p: Point, tol: number): number {
 
 /** Corners of a wall drawn as a rectangle of its thickness, centred on a-b. */
 export function wallPolygon(w: Wall): Point[] {
-  const len = dist(w.a, w.b) || 1;
-  const nx = (-(w.b.y - w.a.y) / len) * (w.thickness / 2);
-  const ny = ((w.b.x - w.a.x) / len) * (w.thickness / 2);
+  const n = wallNormal(w);
+  const nx = n.x * (w.thickness / 2);
+  const ny = n.y * (w.thickness / 2);
   return [
     { x: w.a.x + nx, y: w.a.y + ny },
     { x: w.b.x + nx, y: w.b.y + ny },
@@ -99,7 +100,7 @@ export function calibrate(bg: Background, p1: Point, p2: Point, realCm: number):
 export const pdfCmPerPx = (dpi: number, scale: number): number => (2.54 / dpi) * scale;
 
 export function formatLength(cm: number): string {
-  return cm >= 100 ? `${(cm / 100).toFixed(2).replace('.', ',')} m` : `${Math.round(cm)} cm`;
+  return cm >= 100 ? `${formatDecimal(cm / 100, 2)} m` : `${Math.round(cm)} cm`;
 }
 
 export function bounds(points: Point[]): { min: Point; max: Point } | null {
@@ -110,3 +111,14 @@ export function bounds(points: Point[]): { min: Point; max: Point } | null {
 }
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
+
+/** Size of the plan background in world cm. */
+export function backgroundExtent(bg: Background): { width: number; height: number } {
+  return { width: bg.widthPx * bg.cmPerPx, height: bg.heightPx * bg.cmPerPx };
+}
+
+/** Unit vector perpendicular to the wall (to the left of a → b in screen coordinates). */
+export function wallNormal(w: Wall): Point {
+  const len = dist(w.a, w.b) || 1;
+  return { x: -(w.b.y - w.a.y) / len, y: (w.b.x - w.a.x) / len };
+}

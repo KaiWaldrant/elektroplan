@@ -1,36 +1,23 @@
 <script lang="ts">
-  import { dist, withLength } from '../model/geometry';
+  import { dist } from '../model/geometry';
+  import { formatDecimal, parseDecimal } from '../model/numbers';
+  import { selectedWall, setWallLength as applyWallLength } from '../model/walls';
   import { store } from '../state/store.svelte';
   import NumberDialog from './NumberDialog.svelte';
 
   const floor = $derived(store.floor);
   const bg = $derived(floor.background);
-  const wall = $derived(
-    store.selection?.kind === 'wall' ? floor.walls.find((w) => w.id === store.selection?.id) : undefined,
-  );
+  const wall = $derived(selectedWall(floor, store.selection));
   let lengthDialog = $state(false);
 
   function setWallLength(len: number) {
     const id = wall?.id;
-    store.mutateFloor((f) => {
-      const w = f.walls.find((x) => x.id === id);
-      if (!w) return;
-      const oldB = { ...w.b };
-      const nb = withLength(w, len).b;
-      // walls connected to the moved end follow it
-      for (const o of f.walls) {
-        if (o === w) continue;
-        if (dist(o.a, oldB) < 0.5) o.a = { ...nb };
-        if (dist(o.b, oldB) < 0.5) o.b = { ...nb };
-      }
-      w.b = nb;
-    });
+    if (id) store.mutateFloor((f) => applyWallLength(f.walls, id, len));
     lengthDialog = false;
   }
 
   function num(e: Event): number | null {
-    const v = Number((e.target as HTMLInputElement).value.replace(',', '.'));
-    return Number.isFinite(v) ? v : null;
+    return parseDecimal((e.target as HTMLInputElement).value);
   }
 </script>
 
@@ -86,7 +73,7 @@
     {#if bg}
       <p class="muted">{bg.name}</p>
       <p class:warn={!bg.calibrated}>
-        {bg.calibrated ? 'Geschaald' : 'Nog niet gekalibreerd'} — 1 px = {bg.cmPerPx.toFixed(3).replace('.', ',')} cm
+        {bg.calibrated ? 'Geschaald' : 'Nog niet gekalibreerd'} — 1 px = {formatDecimal(bg.cmPerPx, 3)} cm
       </p>
       <label>
         Doorzichtigheid
