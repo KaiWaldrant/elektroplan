@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { parsePositiveDecimal } from '../model/numbers';
+
   interface Props {
     title: string;
     label: string;
@@ -11,8 +13,7 @@
   // svelte-ignore state_referenced_locally
   let text = $state(value?.toString() ?? ''); // initial value only, on purpose
   let input: HTMLInputElement;
-  const parsed = $derived(Number(text.replace(',', '.')));
-  const valid = $derived(text.trim() !== '' && Number.isFinite(parsed) && parsed > 0);
+  const parsed = $derived(parsePositiveDecimal(text));
 
   $effect(() => {
     input?.focus();
@@ -21,7 +22,7 @@
 
   function submit(e: SubmitEvent) {
     e.preventDefault();
-    if (valid) onconfirm(parsed);
+    if (parsed !== null) onconfirm(parsed);
   }
 </script>
 
@@ -38,6 +39,6 @@
   </label>
   <div class="buttons">
     <button type="button" onclick={oncancel}>Annuleren</button>
-    <button type="submit" class="primary" disabled={!valid}>OK</button>
+    <button type="submit" class="primary" disabled={parsed === null}>OK</button>
   </div>
 </form>

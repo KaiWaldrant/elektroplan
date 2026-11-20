@@ -2,6 +2,8 @@
   import { untrack } from 'svelte';
   import {
     atLength,
+    backgroundCorners,
+    backgroundExtent,
     bounds,
     calibrate,
     dist,
@@ -9,21 +11,21 @@
     hitWall,
     nearestPoint,
     projectOnSegment,
-    samePoint,
     snapAngle,
+    wallNormal,
     wallPolygon,
   } from '../model/geometry';
+  import { parsePositiveDecimal } from '../model/numbers';
+  import { connectedEnds, includesEnd, moveEnds, selectedWall, translateWall } from '../model/walls';
   import { uid } from '../model/project';
-  import type { Point, Wall } from '../model/types';
+  import type { Id, Point, Wall, WallEnd } from '../model/types';
   import { store } from '../state/store.svelte';
   import NumberDialog from './NumberDialog.svelte';
 
-  type End = 'a' | 'b';
-  type Ref = { i: number; end: End };
   type Drag =
     | { kind: 'pan'; sx: number; sy: number; vx: number; vy: number }
-    | { kind: 'end'; refs: Ref[]; moved: boolean }
-    | { kind: 'wall'; i: number; start: Point; orig: Wall; links: (Ref & { from: Point })[]; moved: boolean };
+    | { kind: 'end'; ends: WallEnd[]; moved: boolean }
+    | { kind: 'wall'; wallId: Id; pointerStart: Point; wallsAtStart: Wall[]; moved: boolean };
 
   const SNAP_PX = 10;
 
@@ -46,9 +48,8 @@
   let drag: Drag | null = null;
   let spaceDown = false;
 
-  const selectedWall = $derived(
-    store.selection?.kind === 'wall' ? floor.walls.find((x) => x.id === store.selection?.id) : undefined,
-  );
+  const activeWall = $derived(selectedWall(floor, store.selection));
+  const bgExtent = $derived(bg ? backgroundExtent(bg) : null);
 
   // ---------------------------------------------------------------- view
   function toWorld(e: { clientX: number; clientY: number }): Point {
@@ -58,7 +59,7 @@
 
   function fit() {
     const pts = floor.walls.flatMap((x) => [x.a, x.b]);
-    if (bg) pts.push(bg.offset, { x: bg.offset.x + bg.widthPx * bg.cmPerPx, y: bg.offset.y + bg.heightPx * bg.cmPerPx });
+    if (bg) pts.push(...backgroundCorners(bg));
     const b = bounds(pts) ?? { min: { x: 0, y: 0 }, max: { x: 1000, y: 800 } };
     const bw = Math.max(b.max.x - b.min.x, 100);
     const bh = Math.max(b.max.y - b.min.y, 100);
@@ -85,13 +86,13 @@
   });
 
   // ---------------------------------------------------------------- snapping
-  function snap(p: Point, e: { altKey: boolean }, from: Point | null = null, exclude: Ref[] = []): Point {
+  function snap(p: Point, e: { altKey: boolean }, from: Point | null = null, exclude: WallEnd[] = []): Point {
     const tol = SNAP_PX * px;
     const ends: Point[] = [];
-    floor.walls.forEach((wl, i) => {
-      if (!exclude.some((r) => r.i === i && r.end === 'a')) ends.push(wl.a);
-      if (!exclude.some((r) => r.i === i && r.end === 'b')) ends.push(wl.b);
-    });
+    for (const wl of floor.walls) {
+      if (!includesEnd(exclude, wl.id, 'a')) ends.push(wl.a);
+      if (!includesEnd(exclude, wl.id, 'b')) ends.push(wl.b);
+    }
     const near = nearestPoint(ends, p, tol);
     if (near) {
       snapMark = { ...near };
@@ -100,8 +101,8 @@
     snapMark = null;
     if (e.altKey) return round(p);
     let q = from ? snapAngle(from, p, 15) : p;
-    for (const [i, wl] of floor.walls.entries()) {
-      if (exclude.some((r) => r.i === i)) continue;
+    for (const wl of floor.walls) {
+      if (exclude.some((r) => r.wallId === wl.id)) continue;
       const pr = projectOnSegment(q, wl.a, wl.b);
       if (pr.dist < tol) {
         q = pr.point;
@@ -114,20 +115,9 @@
 
   const round = (p: Point): Point => ({ x: Math.round(p.x), y: Math.round(p.y) });
 
-  function linkedEnds(p: Point, skip?: number): Ref[] {
-    const refs: Ref[] = [];
-    floor.walls.forEach((wl, i) => {
-      if (i === skip) return;
-      if (samePoint(wl.a, p)) refs.push({ i, end: 'a' });
-      if (samePoint(wl.b, p)) refs.push({ i, end: 'b' });
-    });
-    return refs;
-  }
-
   // ---------------------------------------------------------------- wall drawing
   function typedLength(): number | null {
-    const v = Number(lengthInput.replace(',', '.'));
-    return lengthInput && Number.isFinite(v) && v > 0 ? v : null;
+    return parsePositiveDecimal(lengthInput);
   }
 
   function wallTarget(s: Point): Point {
@@ -177,10 +167,10 @@
         break;
       }
       case 'select': {
-        if (selectedWall) {
-          for (const end of ['a', 'b'] as End[]) {
-            if (dist(selectedWall[end], p) <= SNAP_PX * px) {
-              drag = { kind: 'end', refs: linkedEnds(selectedWall[end]), moved: false };
+        if (activeWall) {
+          for (const end of ['a', 'b'] as const) {
+            if (dist(activeWall[end], p) <= SNAP_PX * px) {
+              drag = { kind: 'end', ends: connectedEnds(floor.walls, activeWall[end]), moved: false };
               svg.setPointerCapture(e.pointerId);
               return;
             }
@@ -190,11 +180,7 @@
         if (i >= 0) {
           const wl = floor.walls[i];
           store.selection = { kind: 'wall', id: wl.id };
-          const links = [...linkedEnds(wl.a, i), ...linkedEnds(wl.b, i)].map((r) => ({
-            ...r,
-            from: { ...floor.walls[r.i][r.end] },
-          }));
-          drag = { kind: 'wall', i, start: p, orig: $state.snapshot(wl) as Wall, links, moved: false };
+          drag = { kind: 'wall', wallId: wl.id, pointerStart: p, wallsAtStart: $state.snapshot(floor.walls) as Wall[], moved: false };
           svg.setPointerCapture(e.pointerId);
         } else {
           store.selection = null;
@@ -223,24 +209,19 @@
         store.checkpoint();
         d.moved = true;
       }
-      const s = snap(p, e, null, d.refs);
-      store.applyFloor((f) => d.refs.forEach((r) => (f.walls[r.i][r.end] = { ...s })));
+      const s = snap(p, e, null, d.ends);
+      store.applyFloor((f) => moveEnds(f.walls, d.ends, s));
       return;
     }
     if (d?.kind === 'wall') {
-      const dx = Math.round(p.x - d.start.x);
-      const dy = Math.round(p.y - d.start.y);
+      const dx = Math.round(p.x - d.pointerStart.x);
+      const dy = Math.round(p.y - d.pointerStart.y);
       if (!d.moved && Math.hypot(dx, dy) * view.zoom < 3) return;
       if (!d.moved) {
         store.checkpoint();
         d.moved = true;
       }
-      store.applyFloor((f) => {
-        const wl = f.walls[d.i];
-        wl.a = { x: d.orig.a.x + dx, y: d.orig.a.y + dy };
-        wl.b = { x: d.orig.b.x + dx, y: d.orig.b.y + dy };
-        for (const l of d.links) f.walls[l.i][l.end] = { x: l.from.x + dx, y: l.from.y + dy };
-      });
+      store.applyFloor((f) => translateWall(f.walls, d.wallsAtStart, d.wallId, dx, dy));
       return;
     }
     if (store.tool === 'wall') {
@@ -333,12 +314,9 @@
   const pts = (poly: Point[]) => poly.map((p) => `${p.x},${p.y}`).join(' ');
 
   function labelPos(wl: Wall) {
-    const len = dist(wl.a, wl.b) || 1;
+    const n = wallNormal(wl);
     const off = wl.thickness / 2 + 9 * px;
-    return {
-      x: (wl.a.x + wl.b.x) / 2 + (-(wl.b.y - wl.a.y) / len) * off,
-      y: (wl.a.y + wl.b.y) / 2 + ((wl.b.x - wl.a.x) / len) * off,
-    };
+    return { x: (wl.a.x + wl.b.x) / 2 + n.x * off, y: (wl.a.y + wl.b.y) / 2 + n.y * off };
   }
 </script>
 
@@ -378,8 +356,8 @@
         href={bgUrl}
         x={bg.offset.x}
         y={bg.offset.y}
-        width={bg.widthPx * bg.cmPerPx}
-        height={bg.heightPx * bg.cmPerPx}
+        width={bgExtent?.width}
+        height={bgExtent?.height}
         opacity={bg.opacity}
         preserveAspectRatio="none"
         pointer-events="none"
@@ -387,7 +365,7 @@
     {/if}
 
     {#each floor.walls as wl (wl.id)}
-      <polygon points={pts(wallPolygon(wl))} class="wall" class:selected={wl.id === selectedWall?.id} />
+      <polygon points={pts(wallPolygon(wl))} class="wall" class:selected={wl.id === activeWall?.id} />
     {/each}
 
     {#each floor.walls as wl (wl.id)}
@@ -399,8 +377,8 @@
       {/if}
     {/each}
 
-    {#if selectedWall}
-      {#each [selectedWall.a, selectedWall.b] as e, k (k)}
+    {#if activeWall}
+      {#each [activeWall.a, activeWall.b] as e, k (k)}
         <circle cx={e.x} cy={e.y} r={5 * px} class="handle" stroke-width={1.5 * px} />
       {/each}
     {/if}
