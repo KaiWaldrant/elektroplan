@@ -1,7 +1,7 @@
 import { calibrate } from '../../../model/geometry';
 import type { Point } from '../../../model/types';
 import { store } from '../../../state/store.svelte';
-import { SNAP_PX, snapPoint } from '../snapping';
+import { snapPointer } from './snapPointer';
 import type { CanvasPointer, CanvasTool, PressResult } from './tool';
 
 /**
@@ -43,12 +43,6 @@ export class PickTool implements CanvasTool {
     }
   }
 
-  pointerUp() {}
-
-  keyDown(): boolean {
-    return false;
-  }
-
   cancel() {
     this.picks = [];
     this.preview = null;
@@ -67,7 +61,7 @@ export class PickTool implements CanvasTool {
   }
 
   private snap(p: CanvasPointer, from: Point | null): Point {
-    const s = snapPoint(store.floor.walls, p.world, { tolerance: SNAP_PX * p.cmPerScreenPx, from, free: p.free });
+    const s = snapPointer(p, { from });
     this.snapMark = s.mark;
     return s.point;
   }

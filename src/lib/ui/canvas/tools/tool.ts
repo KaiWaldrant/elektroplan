@@ -8,6 +8,8 @@ export interface CanvasPointer {
   free: boolean;
   /** Size of one screen pixel in world cm, for screen-sized tolerances. */
   cmPerScreenPx: number;
+  /** Snap distance in world cm at the current zoom. */
+  snapTolerance: number;
 }
 
 /** What the canvas should do after a pointer press: capture the pointer for a drag, start panning, or nothing. */
@@ -21,12 +23,13 @@ export interface CanvasTool {
   readonly snapMark: Point | null;
   pointerDown(p: CanvasPointer): PressResult;
   pointerMove(p: CanvasPointer): void;
-  pointerUp(): void;
+  pointerUp?(): void;
   /**
    * A key press on the canvas; `p` is the last pointer position, if the pointer is on the canvas.
    * Returns true when the tool handled the key.
    */
-  keyDown(e: KeyboardEvent, p: CanvasPointer | null): boolean;
+  keyDown?(e: KeyboardEvent, p: CanvasPointer | null): boolean;
+  doubleClick?(): void;
   /** Drop the half-finished action (Esc, right-click, switching tools). */
   cancel(): void;
 }

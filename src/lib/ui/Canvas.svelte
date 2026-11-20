@@ -13,6 +13,7 @@
   import { SelectTool } from './canvas/tools/selectTool.svelte';
   import type { CanvasPointer, CanvasTool } from './canvas/tools/tool';
   import { WallTool } from './canvas/tools/wallTool.svelte';
+  import { SNAP_PX } from './canvas/snapping';
   import { fitView, panBy, toWorld, zoomAt, type View } from './canvas/viewport';
 
   let svg: SVGSVGElement;
@@ -42,7 +43,7 @@
   }
 
   function canvasPointer(world: Point, altKey: boolean): CanvasPointer {
-    return { world, free: altKey, cmPerScreenPx };
+    return { world, free: altKey, cmPerScreenPx, snapTolerance: SNAP_PX * cmPerScreenPx };
   }
 
   function fit() {
@@ -97,7 +98,11 @@
     const world = toWorld(view, screenPoint(e));
     store.cursor = world;
     if (pan) {
-      view = panBy(pan.viewStart, { x: e.clientX - pan.screenStart.x, y: e.clientY - pan.screenStart.y });
+      view = panBy(
+        pan.viewStart,
+        { x: e.clientX - pan.screenStart.x, y: e.clientY - pan.screenStart.y },
+        view.zoom,
+      );
       return;
     }
     active.pointerMove(canvasPointer(world, e.altKey));
@@ -105,7 +110,7 @@
 
   function onpointerup() {
     pan = null;
-    active.pointerUp();
+    active.pointerUp?.();
   }
 
   function onkeydown(e: KeyboardEvent) {
@@ -116,7 +121,7 @@
       return;
     }
     const pointer = store.cursor ? canvasPointer(store.cursor, e.altKey) : null;
-    if (active.keyDown(e, pointer)) return;
+    if (active.keyDown?.(e, pointer)) return;
     if (e.key === 'Escape') active.cancel();
   }
 </script>
@@ -132,7 +137,7 @@
     {onpointermove}
     {onpointerup}
     onpointerleave={() => (store.cursor = null)}
-    ondblclick={() => active === tools.wall && tools.wall.cancel()}
+    ondblclick={() => active.doubleClick?.()}
     oncontextmenu={(e) => {
       e.preventDefault();
       active.cancel();

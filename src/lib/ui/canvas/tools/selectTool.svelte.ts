@@ -2,7 +2,7 @@ import { dist, hitWall } from '../../../model/geometry';
 import { connectedEnds, moveEnds, selectedWall, translateWall } from '../../../model/walls';
 import type { Id, Point, Wall, WallEnd } from '../../../model/types';
 import { store } from '../../../state/store.svelte';
-import { SNAP_PX, snapPoint } from '../snapping';
+import { snapPointer } from './snapPointer';
 import type { CanvasPointer, CanvasTool, PressResult } from './tool';
 
 type Drag =
@@ -29,7 +29,7 @@ export class SelectTool implements CanvasTool {
     const selected = selectedWall(store.floor, store.selection);
     if (selected) {
       for (const end of ['a', 'b'] as const) {
-        if (dist(selected[end], p.world) <= SNAP_PX * p.cmPerScreenPx) {
+        if (dist(selected[end], p.world) <= p.snapTolerance) {
           this.drag = { kind: 'end', ends: connectedEnds(walls, selected[end]), moved: false };
           return 'capture';
         }
@@ -56,11 +56,7 @@ export class SelectTool implements CanvasTool {
     const d = this.drag;
     if (d?.kind === 'end') {
       this.startMoving(d);
-      const s = snapPoint(store.floor.walls, p.world, {
-        tolerance: SNAP_PX * p.cmPerScreenPx,
-        exclude: d.ends,
-        free: p.free,
-      });
+      const s = snapPointer(p, { exclude: d.ends });
       store.applyFloor((f) => moveEnds(f.walls, d.ends, s.point));
     } else if (d?.kind === 'wall') {
       const dx = Math.round(p.world.x - d.pointerStart.x);
@@ -73,10 +69,6 @@ export class SelectTool implements CanvasTool {
 
   pointerUp() {
     this.drag = null;
-  }
-
-  keyDown(): boolean {
-    return false;
   }
 
   cancel() {

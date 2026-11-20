@@ -57,6 +57,10 @@ describe('zoomAt', () => {
 describe('panBy', () => {
   it('moves the view against the drag, in screen px scaled by the zoom', () => {
     const start: View = { x: 100, y: 100, zoom: 2 };
-    expect(panBy(start, { x: 40, y: -20 })).toEqual({ x: 80, y: 110, zoom: 2 });
+    expect(panBy(start, { x: 40, y: -20 }, 2)).toEqual({ x: 80, y: 110, zoom: 2 });
+  });
+  it('keeps the current zoom when the wheel zoomed during the drag', () => {
+    const start: View = { x: 100, y: 100, zoom: 2 };
+    expect(panBy(start, { x: 40, y: -20 }, 4)).toEqual({ x: 90, y: 105, zoom: 4 });
   });
 });

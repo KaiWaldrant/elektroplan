@@ -42,11 +42,10 @@ export function zoomAt(view: View, screen: Point, wheelDeltaY: number): View {
   return { x: anchor.x - screen.x / zoom, y: anchor.y - screen.y / zoom, zoom };
 }
 
-/** The view after dragging the canvas by `screenDelta` px since `viewStart`. */
-export function panBy(viewStart: View, screenDelta: Point): View {
-  return {
-    x: viewStart.x - screenDelta.x / viewStart.zoom,
-    y: viewStart.y - screenDelta.y / viewStart.zoom,
-    zoom: viewStart.zoom,
-  };
+/**
+ * The view after dragging the canvas by `screenDelta` px since `viewStart`, at the current `zoom`
+ * (the wheel may have zoomed during the drag).
+ */
+export function panBy(viewStart: View, screenDelta: Point, zoom: number): View {
+  return { x: viewStart.x - screenDelta.x / zoom, y: viewStart.y - screenDelta.y / zoom, zoom };
 }

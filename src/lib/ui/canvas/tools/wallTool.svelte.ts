@@ -3,7 +3,7 @@ import { parsePositiveDecimal } from '../../../model/numbers';
 import { uid } from '../../../model/project';
 import type { Point } from '../../../model/types';
 import { store } from '../../../state/store.svelte';
-import { SNAP_PX, snapPoint } from '../snapping';
+import { snapPointer } from './snapPointer';
 import type { CanvasPointer, CanvasTool, PressResult } from './tool';
 
 /** Draws a chain of walls: click point after point, or type a length in cm + Enter. */
@@ -34,8 +34,6 @@ export class WallTool implements CanvasTool {
     this.preview = this.chainStart ? this.target(s) : null;
   }
 
-  pointerUp() {}
-
   keyDown(e: KeyboardEvent, p: CanvasPointer | null): boolean {
     if (!this.chainStart) return false;
     if (/^[0-9.,]$/.test(e.key)) {
@@ -59,6 +57,11 @@ export class WallTool implements CanvasTool {
     return false;
   }
 
+  /** A double-click ends the chain. */
+  doubleClick() {
+    this.cancel();
+  }
+
   cancel() {
     this.chainStart = null;
     this.preview = null;
@@ -67,11 +70,7 @@ export class WallTool implements CanvasTool {
   }
 
   private snap(p: CanvasPointer): Point {
-    const s = snapPoint(store.floor.walls, p.world, {
-      tolerance: SNAP_PX * p.cmPerScreenPx,
-      from: this.chainStart,
-      free: p.free,
-    });
+    const s = snapPointer(p, { from: this.chainStart });
     this.snapMark = s.mark;
     return s.point;
   }
