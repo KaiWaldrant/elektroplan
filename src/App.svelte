@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { store } from './lib/state/store.svelte';
+  import { toolForKey } from './lib/state/tools';
   import Canvas from './lib/ui/Canvas.svelte';
   import ImportDialog from './lib/ui/ImportDialog.svelte';
   import SidePanel from './lib/ui/SidePanel.svelte';
@@ -16,6 +17,7 @@
     const t = e.target as HTMLElement;
     if (t.closest('input, textarea, select, .dialog')) return;
     const k = e.key.toLowerCase();
+    const tool = toolForKey(k);
     if ((e.ctrlKey || e.metaKey) && k === 'z') {
       e.preventDefault();
       if (e.shiftKey) store.redo();
@@ -25,10 +27,7 @@
       store.redo();
     } else if (e.ctrlKey || e.metaKey || e.altKey) {
       return;
-    } else if (k === 'v') store.tool = 'select';
-    else if (k === 'w') store.tool = 'wall';
-    else if (k === 'm') store.tool = 'measure';
-    else if (k === 'c') store.tool = 'calibrate';
+    } else if (tool) store.tool = tool;
     else if (k === 'f') store.fitRequest++;
     else if ((k === 'delete' || k === 'backspace') && store.selection) {
       e.preventDefault();
@@ -36,7 +35,7 @@
     }
   }
 
-  const fmt = (v: number) => Math.round(v).toString();
+  const formatCm = (v: number) => Math.round(v).toString();
 </script>
 
 <svelte:window {onkeydown} />
@@ -47,7 +46,7 @@
   <Canvas />
   <footer class="status">
     <span>{store.floor.name}</span>
-    <span>{store.cursor ? `x ${fmt(store.cursor.x)} cm · y ${fmt(store.cursor.y)} cm` : ''}</span>
+    <span>{store.cursor ? `x ${formatCm(store.cursor.x)} cm · y ${formatCm(store.cursor.y)} cm` : ''}</span>
     <span class="hint">{store.hint}</span>
   </footer>
 </div>

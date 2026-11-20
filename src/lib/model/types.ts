@@ -6,19 +6,22 @@ export interface Point {
   y: number;
 }
 
+/** Size of an image in pixels. */
+export interface SizePx {
+  widthPx: number;
+  heightPx: number;
+}
+
 /** A floor plan image (rendered PDF page or photo) under the drawing. */
-export interface Background {
+export interface Background extends SizePx {
   /** Key of the image blob in IndexedDB. */
   blobKey: Id;
   name: string;
-  widthPx: number;
-  heightPx: number;
   /** Real-world centimetres per image pixel. */
   cmPerPx: number;
   /** World position of the image's top-left corner. */
   offset: Point;
   opacity: number;
-  locked: boolean;
   calibrated: boolean;
 }
 

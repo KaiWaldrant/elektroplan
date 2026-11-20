@@ -25,7 +25,6 @@ const bg = (over: Partial<Background> = {}): Background => ({
   cmPerPx: 1,
   offset: { x: 0, y: 0 },
   opacity: 0.5,
-  locked: false,
   calibrated: false,
   ...over,
 });

@@ -2,6 +2,7 @@
   import { pdfCmPerPx } from '../model/geometry';
   import { store } from '../state/store.svelte';
   import { imageSize, pdfPageCount, renderPdfPage } from '../storage/pdf';
+  import Dialog from './Dialog.svelte';
 
   interface Props {
     file: File;
@@ -28,13 +29,12 @@
     })();
   });
 
-  async function doImport(e: SubmitEvent) {
-    e.preventDefault();
+  async function doImport() {
     if (!data) return;
     busy = true;
     error = '';
     try {
-      const base = { name: file.name, offset: { x: 0, y: 0 }, opacity: 0.6, locked: false };
+      const base = { name: file.name, offset: { x: 0, y: 0 }, opacity: 0.6 };
       if (isPdf) {
         const r = await renderPdfPage(data, page);
         await store.setBackground(r.blob, {
@@ -60,10 +60,13 @@
   }
 </script>
 
-<div class="backdrop" role="presentation" onclick={onclose}></div>
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<form class="dialog" onsubmit={doImport} onkeydown={(e) => e.key === 'Escape' && onclose()}>
-  <h2>Plan importeren</h2>
+<Dialog
+  title="Plan importeren"
+  okLabel={busy ? 'Bezig…' : 'Importeren'}
+  okDisabled={busy || !!error}
+  onsubmit={doImport}
+  oncancel={onclose}
+>
   <p class="muted">{file.name} — wordt alleen in deze browser bewaard.</p>
   {#if isPdf}
     {#if pages > 1}
@@ -85,8 +88,4 @@
     <p class="muted">Een afbeelding heeft geen schaal: na het importeren klik je twee punten met een gekende afstand aan (kalibreren).</p>
   {/if}
   {#if error}<p class="error">{error}</p>{/if}
-  <div class="buttons">
-    <button type="button" onclick={onclose}>Annuleren</button>
-    <button type="submit" class="primary" disabled={busy || !!error}>{busy ? 'Bezig…' : 'Importeren'}</button>
-  </div>
-</form>
+</Dialog>

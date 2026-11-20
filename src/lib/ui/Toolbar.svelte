@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { store, type Tool } from '../state/store.svelte';
+  import { store } from '../state/store.svelte';
+  import { TOOLS } from '../state/tools';
 
   interface Props {
     onimport: (file: File) => void;
@@ -10,12 +11,13 @@
   let projectInput: HTMLInputElement;
   let error = $state('');
 
-  const tools: { id: Tool; label: string; key: string }[] = [
-    { id: 'select', label: 'Selecteren', key: 'V' },
-    { id: 'wall', label: 'Muur', key: 'W' },
-    { id: 'measure', label: 'Meten', key: 'M' },
-    { id: 'calibrate', label: 'Kalibreren', key: 'C' },
-  ];
+  /** The file chosen in a hidden file input; resets the input so the same file can be chosen again. */
+  function takeFile(e: Event): File | undefined {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    return file;
+  }
 
   async function save() {
     const blob = await store.exportFile();
@@ -26,9 +28,8 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
-  async function open(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    (e.target as HTMLInputElement).value = '';
+  async function openProjectFile(e: Event) {
+    const file = takeFile(e);
     if (!file) return;
     try {
       error = '';
@@ -39,8 +40,7 @@
   }
 
   function pickPlan(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    (e.target as HTMLInputElement).value = '';
+    const file = takeFile(e);
     if (file) onimport(file);
   }
 
@@ -66,7 +66,7 @@
   </div>
 
   <div class="group tools" role="radiogroup" aria-label="Gereedschap">
-    {#each tools as t (t.id)}
+    {#each TOOLS as t (t.id)}
       <button
         class:active={store.tool === t.id}
         role="radio"
@@ -90,5 +90,5 @@
   {#if error}<span class="error">{error}</span>{/if}
 
   <input bind:this={planInput} type="file" accept=".pdf,image/png,image/jpeg,image/webp" hidden onchange={pickPlan} />
-  <input bind:this={projectInput} type="file" accept=".json,application/json" hidden onchange={open} />
+  <input bind:this={projectInput} type="file" accept=".json,application/json" hidden onchange={openProjectFile} />
 </header>
