@@ -2,6 +2,7 @@ import { blobKeys, createFloor, createProject, uid } from '../model/project';
 import type { Background, Floor, Id, Point, Project, Selection } from '../model/types';
 import { getBlob, loadLastProject, putBlob, saveProject } from '../storage/idb';
 import { exportProjectFile, importProjectFile } from '../storage/projectFile';
+import { Autosave, type SaveState } from './autosave.svelte';
 import { History } from './history.svelte';
 import type { Tool } from './tools';
 
@@ -19,7 +20,6 @@ class Store {
   wallThickness = $state(10);
   /** blobKey -> object URL for display */
   imageUrls = $state<Record<Id, string>>({});
-  saveState = $state<'saved' | 'saving' | 'error'>('saved');
   /** Cursor position in world cm, for the status bar. */
   cursor = $state<Point | null>(null);
   /** Help text for the current tool step, for the status bar. */
@@ -28,7 +28,7 @@ class Store {
   fitRequest = $state(0);
 
   private history = new History<string>();
-  private saveTimer: ReturnType<typeof setTimeout> | undefined;
+  private autosave = new Autosave(() => this.plainProject(), saveProject);
 
   constructor() {
     this.activeFloorId = this.project.floors[0].id;
@@ -40,6 +40,10 @@ class Store {
 
   get canRedo(): boolean {
     return this.history.canRedo;
+  }
+
+  get saveState(): SaveState {
+    return this.autosave.state;
   }
 
   get floor(): Floor {
@@ -72,7 +76,7 @@ class Store {
   apply(fn: (p: Project) => void) {
     fn(this.project);
     this.project.updatedAt = new Date().toISOString();
-    this.scheduleSave();
+    this.autosave.schedule();
   }
 
   undo() {
@@ -89,21 +93,7 @@ class Store {
     this.project = JSON.parse(json);
     if (!this.project.floors.some((f) => f.id === this.activeFloorId)) this.activeFloorId = this.project.floors[0].id;
     this.selection = null;
-    this.scheduleSave();
-  }
-
-  private scheduleSave() {
-    this.saveState = 'saving';
-    clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(async () => {
-      try {
-        await saveProject(this.plainProject());
-        this.saveState = 'saved';
-      } catch (e) {
-        console.error(e);
-        this.saveState = 'error';
-      }
-    }, 400);
+    this.autosave.schedule();
   }
 
   // ---------------------------------------------------------------- project lifecycle
@@ -127,7 +117,7 @@ class Store {
 
   async newProject() {
     await this.setProject(createProject());
-    this.scheduleSave();
+    this.autosave.schedule();
   }
 
   async exportFile(): Promise<Blob> {
@@ -137,7 +127,7 @@ class Store {
 
   async importFile(text: string) {
     await this.setProject(await importProjectFile(text, putBlob));
-    this.scheduleSave();
+    this.autosave.schedule();
   }
 
   /** mutate() scoped to the active floor. */
