@@ -2,9 +2,8 @@ import { blobKeys, createFloor, createProject, uid } from '../model/project';
 import type { Background, Floor, Id, Point, Project, Selection } from '../model/types';
 import { getBlob, loadLastProject, putBlob, saveProject } from '../storage/idb';
 import { exportProjectFile, importProjectFile } from '../storage/projectFile';
-import { History } from './history';
+import { History } from './history.svelte';
 import type { Tool } from './tools';
-
 
 /** Run `fn` on one floor of the project, if it still exists. */
 function onFloor(p: Project, floorId: Id, fn: (f: Floor) => void) {
@@ -21,8 +20,6 @@ class Store {
   /** blobKey -> object URL for display */
   imageUrls = $state<Record<Id, string>>({});
   saveState = $state<'saved' | 'saving' | 'error'>('saved');
-  canUndo = $state(false);
-  canRedo = $state(false);
   /** Cursor position in world cm, for the status bar. */
   cursor = $state<Point | null>(null);
   /** Help text for the current tool step, for the status bar. */
@@ -37,6 +34,14 @@ class Store {
     this.activeFloorId = this.project.floors[0].id;
   }
 
+  get canUndo(): boolean {
+    return this.history.canUndo;
+  }
+
+  get canRedo(): boolean {
+    return this.history.canRedo;
+  }
+
   get floor(): Floor {
     return this.project.floors.find((f) => f.id === this.activeFloorId) ?? this.project.floors[0];
   }
@@ -48,15 +53,19 @@ class Store {
     this.apply(fn);
   }
 
+  /** The project as a plain object (no Svelte proxies), for saving and exporting. */
+  private plainProject(): Project {
+    return $state.snapshot(this.project) as Project;
+  }
+
   /** The project as a JSON string, for the undo history. */
   private snapshot(): string {
-    return JSON.stringify($state.snapshot(this.project));
+    return JSON.stringify(this.plainProject());
   }
 
   /** Record an undo point without changing anything (e.g. at the start of a drag). */
   checkpoint() {
     this.history.record(this.snapshot());
-    this.syncHistoryFlags();
   }
 
   /** Change without a new undo point (used while dragging). */
@@ -80,13 +89,7 @@ class Store {
     this.project = JSON.parse(json);
     if (!this.project.floors.some((f) => f.id === this.activeFloorId)) this.activeFloorId = this.project.floors[0].id;
     this.selection = null;
-    this.syncHistoryFlags();
     this.scheduleSave();
-  }
-
-  private syncHistoryFlags() {
-    this.canUndo = this.history.canUndo;
-    this.canRedo = this.history.canRedo;
   }
 
   private scheduleSave() {
@@ -94,7 +97,7 @@ class Store {
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(async () => {
       try {
-        await saveProject($state.snapshot(this.project) as Project);
+        await saveProject(this.plainProject());
         this.saveState = 'saved';
       } catch (e) {
         console.error(e);
@@ -116,7 +119,6 @@ class Store {
     this.activeFloorId = p.floors[0]?.id ?? '';
     this.selection = null;
     this.history.clear();
-    this.syncHistoryFlags();
     for (const key of blobKeys(p)) {
       const blob = await getBlob(key);
       if (blob) this.imageUrls[key] = URL.createObjectURL(blob);
@@ -129,7 +131,7 @@ class Store {
   }
 
   async exportFile(): Promise<Blob> {
-    const text = await exportProjectFile($state.snapshot(this.project) as Project, getBlob);
+    const text = await exportProjectFile(this.plainProject(), getBlob);
     return new Blob([text], { type: 'application/json' });
   }
 

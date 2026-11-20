@@ -31,6 +31,28 @@ describe('project file', () => {
     expect([...new Uint8Array(await blob!.arrayBuffer())]).toEqual([1, 2, 3, 250]);
   });
 
+  it('keeps every byte of a large plan image', async () => {
+    const bytes = Uint8Array.from({ length: 300_000 }, (_, i) => (i * 7919) % 256);
+    const p = createProject();
+    p.floors[0].background = {
+      blobKey: 'big', name: 'plan.png', widthPx: 10, heightPx: 10, cmPerPx: 1,
+      offset: { x: 0, y: 0 }, opacity: 0.5, calibrated: false,
+    };
+    const text = await exportProjectFile(p, memoryBlobs({ big: new Blob([bytes], { type: 'image/png' }) }).getBlob);
+    const target = memoryBlobs();
+    await importProjectFile(text, target.putBlob);
+    expect(new Uint8Array(await target.blobs.get('big')!.arrayBuffer())).toEqual(bytes);
+  });
+
+  it('also opens a plan image stored as a percent-encoded data URL', async () => {
+    const text = JSON.stringify({
+      format: 'elektroplan', version: 1, project: createProject(), blobs: { b1: 'data:text/plain,a%20b' },
+    });
+    const target = memoryBlobs();
+    await importProjectFile(text, target.putBlob);
+    expect(await target.blobs.get('b1')?.text()).toBe('a b');
+  });
+
   it('rejects JSON that is not a project file', async () => {
     await expect(importProjectFile('{"foo":1}', memoryBlobs().putBlob)).rejects.toThrow(/geen geldig/);
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { History } from './history';
+import { History } from './history.svelte';
 
 describe('History', () => {
   it('gives back the previous state on undo and the newer one on redo', () => {

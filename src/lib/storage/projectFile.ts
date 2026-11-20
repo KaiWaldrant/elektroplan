@@ -5,14 +5,14 @@
 import { blobKeys } from '../model/project';
 import type { Id, Project } from '../model/types';
 
-export interface ProjectFile {
+interface ProjectFile {
   format: 'elektroplan';
   version: 1;
   project: Project;
   blobs: Record<Id, string>;
 }
 
-export function parseProjectFile(text: string): ProjectFile {
+function parseProjectFile(text: string): ProjectFile {
   const data = JSON.parse(text) as Partial<ProjectFile>;
   if (data.format !== 'elektroplan' || data.version !== 1 || !data.project || !Array.isArray(data.project.floors)) {
     throw new Error('Dit is geen geldig Elektroplan-projectbestand.');
@@ -46,8 +46,12 @@ export async function importProjectFile(
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
   const bytes = new Uint8Array(await blob.arrayBuffer());
-  let bin = '';
-  for (const b of bytes) bin += String.fromCharCode(b);
+  // Build the binary string in chunks: one call per byte is slow on a large plan,
+  // and one call for all bytes overflows the argument limit.
+  const CHUNK = 0x8000;
+  const parts: string[] = [];
+  for (let i = 0; i < bytes.length; i += CHUNK) parts.push(String.fromCharCode(...bytes.subarray(i, i + CHUNK)));
+  const bin = parts.join('');
   return `data:${blob.type || 'application/octet-stream'};base64,${btoa(bin)}`;
 }
 

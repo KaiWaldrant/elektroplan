@@ -1,7 +1,10 @@
-/** Undo/redo history of snapshots. The caller owns the current state and passes it in. */
+/**
+ * Undo/redo history of snapshots. The caller owns the current state and passes it in.
+ * `canUndo` and `canRedo` are reactive, so the UI can read them directly.
+ */
 export class History<T> {
-  private past: T[] = [];
-  private future: T[] = [];
+  private past = $state.raw<T[]>([]);
+  private future = $state.raw<T[]>([]);
 
   constructor(private readonly limit = 200) {}
 
@@ -15,24 +18,25 @@ export class History<T> {
 
   /** Remember `current` as an undo point; forgets the redo steps and the oldest step beyond the limit. */
   record(current: T) {
-    this.past.push(current);
-    if (this.past.length > this.limit) this.past.shift();
+    this.past = [...this.past, current].slice(-this.limit);
     this.future = [];
   }
 
   /** The state to go back to, or null; `current` becomes redoable. */
   undo(current: T): T | null {
-    const prev = this.past.pop();
-    if (prev === undefined) return null;
-    this.future.push(current);
+    if (this.past.length === 0) return null;
+    const prev = this.past[this.past.length - 1];
+    this.past = this.past.slice(0, -1);
+    this.future = [...this.future, current];
     return prev;
   }
 
   /** The state to go forward to, or null; `current` becomes undoable. */
   redo(current: T): T | null {
-    const next = this.future.pop();
-    if (next === undefined) return null;
-    this.past.push(current);
+    if (this.future.length === 0) return null;
+    const next = this.future[this.future.length - 1];
+    this.future = this.future.slice(0, -1);
+    this.past = [...this.past, current];
     return next;
   }
 
