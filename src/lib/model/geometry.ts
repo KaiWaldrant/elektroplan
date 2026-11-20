@@ -84,18 +84,6 @@ export function withLength(w: Wall, length: number): Wall {
   return { ...w, b: atLength(w.a, w.b, length) };
 }
 
-/**
- * Re-scale a background so the world distance between p1 and p2 becomes `realCm`.
- * p1 stays where it is on screen, so the user does not lose their place.
- */
-export function calibrate(bg: Background, p1: Point, p2: Point, realCm: number): Background {
-  const measured = dist(p1, p2);
-  if (measured <= 0 || realCm <= 0) throw new Error('Calibration needs two different points and a positive distance');
-  const cmPerPx = (bg.cmPerPx * realCm) / measured;
-  const px = { x: (p1.x - bg.offset.x) / bg.cmPerPx, y: (p1.y - bg.offset.y) / bg.cmPerPx };
-  return { ...bg, cmPerPx, offset: { x: p1.x - px.x * cmPerPx, y: p1.y - px.y * cmPerPx }, calibrated: true };
-}
-
 /** cm per pixel for a PDF page rendered at `dpi`, drawn at scale 1:`scale`. */
 export const pdfCmPerPx = (dpi: number, scale: number): number => (2.54 / dpi) * scale;
 
