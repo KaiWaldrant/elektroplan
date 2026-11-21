@@ -64,9 +64,24 @@ A circuit breaker in a Verdeelbord that protects exactly one Eindstroombaan or t
 _Avoid_: zekering, fuse, breaker
 
 **Contactdoos**:
-A Toestel to plug in an appliance, with earth and child protection. Several next to each other form a Combinatie.
+A Toestel to plug in an appliance, with earth and child protection. Several next to each other form a Combinatie. A dedicated Contactdoos serves one Gebruikstoestel and is drawn with that appliance's symbol in front of it.
 **Code**: `Socket`
 _Avoid_: stopcontact, outlet, plug
+
+**Gebruikstoestel**:
+A fixed household appliance on its own dedicated Contactdoos: washing machine, dryer, dishwasher, oven or hob. It is not a Toestel of its own; it only names what the Contactdoos is for.
+**Code**: `Appliance`
+_Avoid_: toestel (alone), device, verbruiker
+
+**Datacontactdoos**:
+A Toestel to plug in a network cable (data outlet). It carries no 230 V and belongs to no Eindstroombaan.
+**Code**: `DataOutlet`
+_Avoid_: netwerkpunt, RJ45, data point
+
+**Ventilator**:
+A Toestel that moves air, such as a bathroom extractor, on a wall or on the ceiling.
+**Code**: `Fan`
+_Avoid_: afzuiging, extractor
 
 ## Switching
 

@@ -11,7 +11,7 @@ describe('DEVICE_TYPES', () => {
     }
   });
 
-  it('covers the 11a Toestellen', () => {
+  it('covers the M2 Toestellen', () => {
     expect(DEVICE_TYPES.map((t) => t.key)).toEqual([
       'lightPoint:ceiling',
       'lightPoint:wall',
@@ -20,6 +20,15 @@ describe('DEVICE_TYPES', () => {
       'switch:twoWay',
       'switch:intermediate',
       'switch:dimmer',
+      'socket',
+      'socket:washingMachine',
+      'socket:dryer',
+      'socket:dishwasher',
+      'socket:oven',
+      'socket:hob',
+      'dataOutlet',
+      'fan:wall',
+      'fan:ceiling',
     ]);
   });
 });
@@ -27,6 +36,10 @@ describe('DEVICE_TYPES', () => {
 describe('kindFromKey', () => {
   it('turns a key back into its kind', () => {
     expect(kindFromKey('switch:dimmer')).toEqual({ type: 'switch', variant: 'dimmer' });
+  });
+  it('knows a Contactdoos with and without its appliance', () => {
+    expect(kindFromKey('socket')).toEqual({ type: 'socket' });
+    expect(kindFromKey('socket:oven')).toEqual({ type: 'socket', appliance: 'oven' });
   });
   it('is undefined for an unknown key', () => {
     expect(kindFromKey('toaster')).toBeUndefined();
@@ -46,6 +59,10 @@ describe('isWallMounted', () => {
     expect(isWallMounted({ type: 'lightPoint', mount: 'wall' })).toBe(true);
     expect(isWallMounted({ type: 'pushButton' })).toBe(true);
     expect(isWallMounted({ type: 'switch', variant: 'intermediate' })).toBe(true);
+    expect(isWallMounted({ type: 'socket', appliance: 'dryer' })).toBe(true);
+    expect(isWallMounted({ type: 'dataOutlet' })).toBe(true);
+    expect(isWallMounted({ type: 'fan', mount: 'wall' })).toBe(true);
+    expect(isWallMounted({ type: 'fan', mount: 'ceiling' })).toBe(false);
   });
 });
 
@@ -58,5 +75,14 @@ describe('variantsOf', () => {
       'switch:dimmer',
     ]);
     expect(variantsOf({ type: 'pushButton' }).map((t) => t.key)).toEqual(['pushButton']);
+    expect(variantsOf({ type: 'socket' }).map((t) => t.key)).toEqual([
+      'socket',
+      'socket:washingMachine',
+      'socket:dryer',
+      'socket:dishwasher',
+      'socket:oven',
+      'socket:hob',
+    ]);
+    expect(variantsOf({ type: 'fan', mount: 'ceiling' }).map((t) => t.key)).toEqual(['fan:wall', 'fan:ceiling']);
   });
 });

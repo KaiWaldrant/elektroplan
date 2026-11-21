@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calibrate, calibrateFloor } from './calibration';
-import type { Background, Device, Floor, Point, Project, Wall } from './types';
+import { PROJECT_VERSION, type Background, type Device, type Floor, type Point, type Project, type Wall } from './types';
 
 const bg = (over: Partial<Background> = {}): Background => ({
   blobKey: 'k',
@@ -39,7 +39,7 @@ const lightPoint = (id: string, floorId: string, x: number, y: number): Device =
 
 /** A project with floor 'f' (plan, walls, one Lichtpunt), floor 'other' (one Lichtpunt) and an unplaced Lichtpunt. */
 const project = (over: Partial<Floor> = {}): Project => ({
-  version: 3,
+  version: PROJECT_VERSION,
   id: 'p',
   name: 'Voorbeeld',
   floors: [floor(over), { id: 'other', name: 'Verdieping 1', level: 300, walls: [] }],

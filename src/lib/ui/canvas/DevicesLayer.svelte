@@ -19,12 +19,13 @@
 
 <style>
   .device {
-    stroke: var(--dim);
+    color: var(--dim);
+    stroke: currentColor;
     stroke-width: 2;
     stroke-linecap: round;
   }
   .device.selected {
-    stroke: var(--accent);
+    color: var(--accent);
     stroke-width: 3;
   }
   .halo {

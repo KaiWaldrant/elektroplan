@@ -149,6 +149,18 @@ describe('setDeviceKind', () => {
     setDeviceKind(p.devices, walls, d.id, { type: 'pushButton' });
     expect(p.devices[0]).not.toHaveProperty('mount');
   });
+  it('drops the appliance when a dedicated Contactdoos becomes a plain one', () => {
+    const p = twoFloors();
+    const d = placeDevice(p, 'f0', { type: 'socket', appliance: 'washingMachine' }, { x: 100, y: 20 }, 180);
+    setDeviceKind(p.devices, walls, d.id, { type: 'socket' });
+    expect(p.devices[0]).not.toHaveProperty('appliance');
+  });
+  it('turns a Ventilator back to 0 when it becomes a ceiling one', () => {
+    const p = twoFloors();
+    const d = placeDevice(p, 'f0', { type: 'fan', mount: 'wall' }, { x: 100, y: 20 }, 180);
+    setDeviceKind(p.devices, walls, d.id, { type: 'fan', mount: 'ceiling' });
+    expect(p.devices[0].placement).toEqual({ floorId: 'f0', at: { x: 100, y: 20 }, rotation: 0 });
+  });
   it('turns a Toestel back to 0 when it becomes a ceiling Lichtpunt', () => {
     const p = twoFloors();
     const d = placeDevice(p, 'f0', { type: 'lightPoint', mount: 'wall' }, { x: 100, y: 20 }, 180);
@@ -205,7 +217,12 @@ describe('positionAt', () => {
     expect(positionAt(sw, walls, { x: 100, y: 200 }, false)).toEqual({ at: { x: 100, y: 200 } });
     expect(positionAt(sw, walls, { x: 100, y: 25 }, true)).toEqual({ at: { x: 100, y: 25 } });
   });
-  it('never snaps a ceiling Lichtpunt', () => {
+  it('never snaps a ceiling Lichtpunt or ceiling Ventilator', () => {
     expect(positionAt(ceiling, walls, { x: 100, y: 25 }, false)).toEqual({ at: { x: 100, y: 25 } });
+    expect(positionAt({ type: 'fan', mount: 'ceiling' }, walls, { x: 100, y: 25 }, false)).toEqual({ at: { x: 100, y: 25 } });
+  });
+  it('snaps a Contactdoos, Datacontactdoos and wall Ventilator like any wall-mounted Toestel', () => {
+    for (const kind of [{ type: 'socket', appliance: 'hob' }, { type: 'dataOutlet' }, { type: 'fan', mount: 'wall' }] as DeviceKind[])
+      expect(positionAt(kind, walls, { x: 100, y: 25 }, false)).toEqual({ at: { x: 100, y: 20 }, rotation: 180 });
   });
 });
