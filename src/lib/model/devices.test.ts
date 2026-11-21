@@ -54,7 +54,7 @@ describe('symbolReach', () => {
   it('is half the symbol size, or more for a Contactdoos with its appliance in front', () => {
     expect(symbolReach({ type: 'socket' })).toBe(15);
     expect(symbolReach({ type: 'fan', mount: 'wall' })).toBe(15);
-    expect(symbolReach({ type: 'socket', appliance: 'oven' })).toBe(25);
+    expect(symbolReach({ type: 'socket', appliance: 'oven' })).toBe(27);
   });
 });
 

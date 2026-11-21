@@ -30,11 +30,11 @@ export function selectedDevice(devices: Device[], floorId: Id, selection: Select
 }
 
 /**
- * How far (cm) a Toestel's symbol reaches from its centre: half the symbol size, or 25 for a
+ * How far (cm) a Toestel's symbol reaches from its centre: half the symbol size, or 27 for a
  * Contactdoos with its appliance drawn in front of it.
  */
 export function symbolReach(kind: DeviceKind): number {
-  return kind.type === 'socket' && kind.appliance ? 25 : SYMBOL_CM / 2;
+  return kind.type === 'socket' && kind.appliance ? 27 : SYMBOL_CM / 2;
 }
 
 /** The Toestel on floor `floorId` nearest to `p` within its symbol reach plus `slack` cm, if any. */

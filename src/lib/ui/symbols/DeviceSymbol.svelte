@@ -5,7 +5,8 @@
    * A Toestel's symbol per AREI Boek 1, Tabel 2.23 "Grafische symbolen" (sections E and G), drawn in
    * a local frame: centred on (0, 0), SYMBOL_CM (30) across, with the wall side down (+y). The caller
    * moves and turns it with a transform. Lines use the stroke of the surrounding element, dots its
-   * colour. A dedicated Contactdoos draws its appliance in front of it, reaching to y = -25.
+   * colour. A dedicated Contactdoos draws its appliance in front of it, reaching to y = -26
+   * (see symbolReach).
    */
   let { kind }: { kind: DeviceKind } = $props();
 
@@ -50,43 +51,45 @@
     <path d="M 2 -3.5 L 9 -15.6 M 7 -12 l 8 -4 l 0 7 z" />
   {/if}
 {:else if kind.type === 'socket'}
-  <!-- Contactdoos with earth and child protection: leg along the wall, stem, cup to the room,
-       earth bar across the stem, feet on the cup -->
-  <path d="M -14 15 L 0 15 L 0 7 M -8 10 L 8 10 M -13 -2 L -9 -2 A 9 9 0 0 0 9 -2 L 13 -2" />
+  <!-- Contactdoos with earth and child protection: stem from the wall, cup to the room, earth bar
+       across the stem, feet on the cup (figure 3.2) -->
+  <path d="M 0 15 L 0 7 M -8 10 L 8 10 M -13 -2 L -9 -2 A 9 9 0 0 0 9 -2 L 13 -2" />
   {#if kind.appliance}
-    <!-- the Gebruikstoestel in front of it (section G): a square with its pictogram -->
-    <rect x="-10" y="-25" width="20" height="20" />
+    <!-- the Gebruikstoestel in front of it (section G): its lead from the cup to a square with
+         the pictogram, the table drawing turned so the lead points at the wall -->
+    <path d="M 0 -2 L 0 -8" />
+    <rect x="-9" y="-26" width="18" height="18" />
     {#if kind.appliance === 'washingMachine'}
-      <circle cy="-15" r="7" />
-      <circle class="dot" cy="-15" r="2.5" />
+      <circle cy="-17" r="6" />
+      <circle class="dot" cy="-17" r="2.2" />
     {:else if kind.appliance === 'dryer'}
-      <circle cx="-3" cy="-19" r="3" />
-      <circle cx="3" cy="-19" r="3" />
-      <circle class="dot" cy="-10.5" r="2.5" />
+      <circle cx="-3.5" cy="-19.7" r="2.7" />
+      <circle cx="-3.5" cy="-14.3" r="2.7" />
+      <circle class="dot" cx="4" cy="-17" r="2.2" />
     {:else if kind.appliance === 'dishwasher'}
-      <circle cy="-15" r="4" />
-      <path d="M -10 -25 L -2.8 -17.8 M 10 -25 L 2.8 -17.8 M -10 -5 L -2.8 -12.2 M 10 -5 L 2.8 -12.2" />
+      <circle cy="-17" r="3.5" />
+      <path d="M -9 -26 L -2.5 -19.5 M 9 -26 L 2.5 -19.5 M -9 -8 L -2.5 -14.5 M 9 -8 L 2.5 -14.5" />
     {:else if kind.appliance === 'oven'}
-      <path d="M -10 -21 L 10 -21" />
-      <circle class="dot" cy="-12.5" r="2.5" />
+      <path d="M -5 -26 L -5 -8" />
+      <circle class="dot" cx="2" cy="-17" r="2.2" />
     {:else if kind.appliance === 'hob'}
-      <circle class="dot" cx="-4.5" cy="-19.5" r="2.5" />
-      <circle class="dot" cx="4.5" cy="-19.5" r="2.5" />
-      <circle class="dot" cx="4.5" cy="-10.5" r="2.5" />
+      <circle class="dot" cx="-4" cy="-21" r="2.2" />
+      <circle class="dot" cx="4" cy="-21" r="2.2" />
+      <circle class="dot" cx="-4" cy="-13" r="2.2" />
     {/if}
   {/if}
 {:else if kind.type === 'dataOutlet'}
   <!-- Datacontactdoos: a lead from the wall to a bar with its ends turned to the room -->
   <path d="M 0 15 L 0 2 M -8 -6 L -8 2 L 8 2 L 8 -6" />
 {:else if kind.type === 'fan'}
-  <!-- Ventilator: a square with two touching circles; on a wall with its lead to the wall -->
+  <!-- Ventilator: a square with two touching circles along its lead; on a wall the lead goes to the wall -->
   {@const cy = kind.mount === 'wall' ? -5 : 0}
   {#if kind.mount === 'wall'}
     <path d="M 0 15 L 0 5" />
   {/if}
   <rect x="-10" y={cy - 10} width="20" height="20" />
-  <circle cx="-4" {cy} r="4" />
-  <circle cx="4" {cy} r="4" />
+  <circle cy={cy - 4} r="4" />
+  <circle cy={cy + 4} r="4" />
 {/if}
 
 <style>
