@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { SYMBOL_CM } from '../../model/devices';
+  import { symbolReach } from '../../model/devices';
   import type { Id, PlacedDevice } from '../../model/types';
   import DeviceSymbol from '../symbols/DeviceSymbol.svelte';
 
@@ -11,7 +11,7 @@
   {@const { at, rotation } = d.placement}
   <g class="device" class:selected={d.id === selectedId} transform="translate({at.x} {at.y}) rotate({rotation})">
     {#if d.id === selectedId}
-      <circle r={SYMBOL_CM * 0.75} class="halo" />
+      <circle r={symbolReach(d) + 7.5} class="halo" />
     {/if}
     <DeviceSymbol kind={d} />
   </g>

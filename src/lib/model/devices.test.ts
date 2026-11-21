@@ -10,6 +10,7 @@ import {
   selectedDevice,
   setDeviceKind,
   snapToWall,
+  symbolReach,
 } from './devices';
 import { createFloor, createProject, removeFloor } from './project';
 import type { DeviceKind, Project, Wall } from './types';
@@ -49,18 +50,34 @@ describe('devicesOnFloor', () => {
   });
 });
 
+describe('symbolReach', () => {
+  it('is half the symbol size, or more for a Contactdoos with its appliance in front', () => {
+    expect(symbolReach({ type: 'socket' })).toBe(15);
+    expect(symbolReach({ type: 'fan', mount: 'wall' })).toBe(15);
+    expect(symbolReach({ type: 'socket', appliance: 'oven' })).toBe(25);
+  });
+});
+
 describe('hitDevice', () => {
-  it('finds the nearest Toestel on the floor within the radius', () => {
+  it('finds the nearest Toestel on the floor within its symbol reach plus the slack', () => {
     const p = twoFloors();
     placeLightPoint(p, 'f0', { x: 0, y: 0 });
     const near = placeLightPoint(p, 'f0', { x: 20, y: 0 });
     placeLightPoint(p, 'f1', { x: 14, y: 0 });
-    expect(hitDevice(p.devices, 'f0', { x: 14, y: 0 }, 15)).toBe(near);
+    expect(hitDevice(p.devices, 'f0', { x: 14, y: 0 }, 0)).toBe(near);
   });
-  it('is undefined when nothing is within the radius', () => {
+  it('is undefined when nothing is within reach', () => {
     const p = twoFloors();
     placeLightPoint(p, 'f0', { x: 0, y: 0 });
-    expect(hitDevice(p.devices, 'f0', { x: 16, y: 0 }, 15)).toBeUndefined();
+    expect(hitDevice(p.devices, 'f0', { x: 16, y: 0 }, 0)).toBeUndefined();
+    expect(hitDevice(p.devices, 'f0', { x: 16, y: 0 }, 2)).toBeDefined();
+  });
+  it('finds a Contactdoos by the appliance in front of it', () => {
+    const p = twoFloors();
+    const dedicated = placeDevice(p, 'f0', { type: 'socket', appliance: 'washingMachine' }, { x: 0, y: 0 });
+    placeDevice(p, 'f0', { type: 'socket' }, { x: 100, y: 0 });
+    expect(hitDevice(p.devices, 'f0', { x: 0, y: -22 }, 0)).toBe(dedicated);
+    expect(hitDevice(p.devices, 'f0', { x: 100, y: -22 }, 0)).toBeUndefined();
   });
 });
 
@@ -222,7 +239,8 @@ describe('positionAt', () => {
     expect(positionAt({ type: 'fan', mount: 'ceiling' }, walls, { x: 100, y: 25 }, false)).toEqual({ at: { x: 100, y: 25 } });
   });
   it('snaps a Contactdoos, Datacontactdoos and wall Ventilator like any wall-mounted Toestel', () => {
-    for (const kind of [{ type: 'socket', appliance: 'hob' }, { type: 'dataOutlet' }, { type: 'fan', mount: 'wall' }] as DeviceKind[])
+    const kinds: DeviceKind[] = [{ type: 'socket', appliance: 'hob' }, { type: 'dataOutlet' }, { type: 'fan', mount: 'wall' }];
+    for (const kind of kinds)
       expect(positionAt(kind, walls, { x: 100, y: 25 }, false)).toEqual({ at: { x: 100, y: 20 }, rotation: 180 });
   });
 });

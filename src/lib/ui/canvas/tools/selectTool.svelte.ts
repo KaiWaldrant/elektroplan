@@ -5,7 +5,6 @@ import {
   positionAt,
   rotateDevice,
   selectedDevice,
-  SYMBOL_CM,
 } from '../../../model/devices';
 import { dist, hitWall } from '../../../model/geometry';
 import { connectedEnds, moveEnds, selectedWall, translateWall } from '../../../model/walls';
@@ -56,7 +55,7 @@ export class SelectTool implements CanvasTool {
         }
       }
     }
-    const device = hitDevice(store.project.devices, store.floor.id, p.world, SYMBOL_CM / 2 + HIT_PX * p.cmPerScreenPx);
+    const device = hitDevice(store.project.devices, store.floor.id, p.world, HIT_PX * p.cmPerScreenPx);
     if (device) {
       store.selection = { kind: 'device', id: device.id };
       this.drag = {
