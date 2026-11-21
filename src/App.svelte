@@ -10,7 +10,13 @@
   let importFile = $state<File | null>(null);
 
   onMount(() => {
-    store.loadLast().then(() => store.fitRequest++);
+    store
+      .loadLast()
+      .then(() => store.fitRequest++)
+      .catch((e: unknown) => {
+        console.error(e);
+        alert(`Het laatste project kon niet geopend worden: ${e instanceof Error ? e.message : e}`);
+      });
   });
 
   function onkeydown(e: KeyboardEvent) {

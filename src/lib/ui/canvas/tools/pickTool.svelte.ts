@@ -56,7 +56,8 @@ export class PickTool implements CanvasTool {
    */
   confirmDistance(realCm: number) {
     const [p1, p2] = this.picks;
-    if (store.floor.background && p1 && p2) store.mutateFloor((f) => calibrateFloor(f, p1, p2, realCm));
+    const floorId = store.floor.id;
+    if (store.floor.background && p1 && p2) store.mutate((p) => calibrateFloor(p, floorId, p1, p2, realCm));
     this.cancel();
     store.tool = 'select';
   }

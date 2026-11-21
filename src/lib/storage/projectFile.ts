@@ -2,22 +2,27 @@
  * The project file the user saves: the project plus its plan images as data URLs, so one file is the
  * whole project. Reading and writing it never touches the network (ADR 0002).
  */
+import { assertKnownVersion, migrateProject } from '../model/migrate';
 import { blobKeys } from '../model/project';
-import type { Id, Project } from '../model/types';
+import { PROJECT_VERSION, type Id, type Project } from '../model/types';
+
+/** The file wrapper has the same version as the project inside it; older files are read and migrated. */
+const FILE_VERSION = PROJECT_VERSION;
 
 interface ProjectFile {
   format: 'elektroplan';
-  version: 1;
+  version: number;
   project: Project;
   blobs: Record<Id, string>;
 }
 
 function parseProjectFile(text: string): ProjectFile {
   const data = JSON.parse(text) as Partial<ProjectFile>;
-  if (data.format !== 'elektroplan' || data.version !== 1 || !data.project || !Array.isArray(data.project.floors)) {
+  if (data.format !== 'elektroplan' || typeof data.version !== 'number' || !data.project) {
     throw new Error('Dit is geen geldig Elektroplan-projectbestand.');
   }
-  return { format: 'elektroplan', version: 1, project: data.project, blobs: data.blobs ?? {} };
+  assertKnownVersion(data.version);
+  return { format: 'elektroplan', version: FILE_VERSION, project: migrateProject(data.project), blobs: data.blobs ?? {} };
 }
 
 /** The project as file text, with every plan image that `getBlob` still has. */
@@ -30,7 +35,7 @@ export async function exportProjectFile(
     const blob = await getBlob(key);
     if (blob) blobs[key] = await blobToDataUrl(blob);
   }
-  const file: ProjectFile = { format: 'elektroplan', version: 1, project, blobs };
+  const file: ProjectFile = { format: 'elektroplan', version: FILE_VERSION, project, blobs };
   return JSON.stringify(file);
 }
 

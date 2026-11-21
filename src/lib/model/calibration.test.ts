@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calibrate, calibrateFloor } from './calibration';
-import type { Background, Floor, Point, Wall } from './types';
+import type { Background, Device, Floor, Point, Project, Wall } from './types';
 
 const bg = (over: Partial<Background> = {}): Background => ({
   blobKey: 'k',
@@ -28,6 +28,23 @@ const floor = (over: Partial<Floor> = {}): Floor => ({
   background: bg({ cmPerPx: 0.8, offset: { x: -50, y: 20 } }),
   walls: [wall('w1', 100, 100, 500, 100), wall('w2', 500, 100, 500, 400)],
   ...over,
+});
+
+const lightPoint = (id: string, floorId: string, x: number, y: number): Device => ({
+  id,
+  type: 'lightPoint',
+  placement: { floorId, at: { x, y } },
+});
+
+/** A project with floor 'f' (plan, walls, one Lichtpunt), floor 'other' (one Lichtpunt) and an unplaced Lichtpunt. */
+const project = (over: Partial<Floor> = {}): Project => ({
+  version: 2,
+  id: 'p',
+  name: 'Voorbeeld',
+  floors: [floor(over), { id: 'other', name: 'Verdieping 1', level: 300, walls: [] }],
+  devices: [lightPoint('d1', 'f', 300, 300), lightPoint('d2', 'other', 300, 300), { id: 'd3', type: 'lightPoint' }],
+  createdAt: '',
+  updatedAt: '',
 });
 
 /** Where a world point lies on the plan image, in image pixels. */
@@ -61,17 +78,19 @@ describe('calibrate', () => {
 
 describe('calibrateFloor', () => {
   it('calibrates the background like calibrate()', () => {
-    const f = floor();
-    const expected = calibrate(f.background!, p1, p2, 500);
-    calibrateFloor(f, p1, p2, 500);
-    expect(f.background).toEqual(expected);
+    const pr = project();
+    const expected = calibrate(pr.floors[0].background!, p1, p2, 500);
+    calibrateFloor(pr, 'f', p1, p2, 500);
+    expect(pr.floors[0].background).toEqual(expected);
   });
 
-  it('keeps every wall end on the same spot of the plan', () => {
-    const f = floor();
-    const before = f.walls.flatMap((w) => [onPlan(f.background!, w.a), onPlan(f.background!, w.b)]);
-    calibrateFloor(f, p1, p2, 500);
-    const after = f.walls.flatMap((w) => [onPlan(f.background!, w.a), onPlan(f.background!, w.b)]);
+  it('keeps every wall end and Toestel on the same spot of the plan', () => {
+    const pr = project();
+    const f = pr.floors[0];
+    const points = () => [...f.walls.flatMap((w) => [w.a, w.b]), pr.devices[0].placement!.at];
+    const before = points().map((p) => onPlan(f.background!, p));
+    calibrateFloor(pr, 'f', p1, p2, 500);
+    const after = points().map((p) => onPlan(f.background!, p));
     after.forEach((p, i) => {
       expect(p.x).toBeCloseTo(before[i].x);
       expect(p.y).toBeCloseTo(before[i].y);
@@ -79,31 +98,42 @@ describe('calibrateFloor', () => {
   });
 
   it('scales wall lengths by the calibration factor, around the first point', () => {
-    const f = floor();
-    calibrateFloor(f, p1, p2, 500); // factor 2.5
-    expect(f.walls[0].a.x).toBeCloseTo(100);
-    expect(f.walls[0].a.y).toBeCloseTo(100);
-    expect(f.walls[0].b.x).toBeCloseTo(1100);
-    expect(f.walls[1].b.y).toBeCloseTo(850);
+    const pr = project();
+    calibrateFloor(pr, 'f', p1, p2, 500); // factor 2.5
+    const [w1, w2] = pr.floors[0].walls;
+    expect(w1.a.x).toBeCloseTo(100);
+    expect(w1.a.y).toBeCloseTo(100);
+    expect(w1.b.x).toBeCloseTo(1100);
+    expect(w2.b.y).toBeCloseTo(850);
+    expect(pr.devices[0].placement!.at.x).toBeCloseTo(600);
   });
 
   it('keeps the wall thickness', () => {
-    const f = floor();
-    calibrateFloor(f, p1, p2, 500);
-    expect(f.walls.map((w) => w.thickness)).toEqual([10, 10]);
+    const pr = project();
+    calibrateFloor(pr, 'f', p1, p2, 500);
+    expect(pr.floors[0].walls.map((w) => w.thickness)).toEqual([10, 10]);
+  });
+
+  it('leaves other floors and unplaced Toestellen alone', () => {
+    const pr = project();
+    const before = structuredClone(pr);
+    calibrateFloor(pr, 'f', p1, p2, 500);
+    expect(pr.floors[1]).toEqual(before.floors[1]);
+    expect(pr.devices.slice(1)).toEqual(before.devices.slice(1));
   });
 
   it('changes nothing when the calibration is invalid (identical points)', () => {
-    const f = floor();
-    const before = structuredClone(f);
-    expect(() => calibrateFloor(f, p1, { ...p1 }, 500)).toThrow();
-    expect(f).toEqual(before);
+    const pr = project();
+    const before = structuredClone(pr);
+    expect(() => calibrateFloor(pr, 'f', p1, { ...p1 }, 500)).toThrow();
+    expect(pr).toEqual(before);
   });
 
-  it('changes nothing on a floor without a plan', () => {
-    const f = floor({ background: undefined });
-    const before = structuredClone(f);
-    calibrateFloor(f, p1, p2, 500);
-    expect(f).toEqual(before);
+  it('changes nothing on a floor without a plan, or an unknown floor', () => {
+    const pr = project({ background: undefined });
+    const before = structuredClone(pr);
+    calibrateFloor(pr, 'f', p1, p2, 500);
+    calibrateFloor(pr, 'gone', p1, p2, 500);
+    expect(pr).toEqual(before);
   });
 });

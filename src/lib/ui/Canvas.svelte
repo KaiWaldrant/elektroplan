@@ -6,7 +6,10 @@
   import { store } from '../state/store.svelte';
   import type { Tool } from '../state/tools';
   import NumberDialog from './NumberDialog.svelte';
+  import { devicesOnFloor, placeLightPoint, selectedDevice } from '../model/devices';
   import BackgroundLayer from './canvas/BackgroundLayer.svelte';
+  import DevicesLayer from './canvas/DevicesLayer.svelte';
+  import { DEVICE_DRAG_TYPE, isDeviceType } from './canvas/deviceDrag';
   import Overlay from './canvas/Overlay.svelte';
   import WallsLayer from './canvas/WallsLayer.svelte';
   import { PickTool } from './canvas/tools/pickTool.svelte';
@@ -34,6 +37,12 @@
 
   const floor = $derived(store.floor);
   const cmPerScreenPx = $derived(1 / view.zoom);
+  const floorDevices = $derived(devicesOnFloor(store.project.devices, floor.id));
+  /** Calibrating moves what is placed on the floor (ADR 0004); the dialog says so. */
+  const calibrationNote = $derived.by(() => {
+    const moving = [floor.walls.length > 0 && 'muren', floorDevices.length > 0 && 'toestellen'].filter(Boolean);
+    return moving.length ? `De ${moving.join(' en ')} op deze verdieping schalen mee.` : undefined;
+  });
 
   // ---------------------------------------------------------------- view
   /** The pointer position relative to the canvas's top-left corner, in screen px. */
@@ -113,6 +122,24 @@
     active.pointerUp?.();
   }
 
+  // ---------------------------------------------------------------- Toestellen dropped from the palette
+  function ondragover(e: DragEvent) {
+    if (!e.dataTransfer?.types.includes(DEVICE_DRAG_TYPE)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }
+
+  function ondrop(e: DragEvent) {
+    const type = e.dataTransfer?.getData(DEVICE_DRAG_TYPE) ?? '';
+    if (!isDeviceType(type)) return;
+    e.preventDefault();
+    const at = toWorld(view, screenPoint(e));
+    const floorId = floor.id;
+    let id = '';
+    store.mutate((p) => (id = placeLightPoint(p, floorId, at).id));
+    store.selection = { kind: 'device', id };
+  }
+
   function onkeydown(e: KeyboardEvent) {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     if (e.key === ' ') {
@@ -128,7 +155,7 @@
 
 <svelte:window {onkeydown} onkeyup={(e) => e.key === ' ' && (spaceDown = false)} />
 
-<div class="canvas" bind:clientWidth={widthPx} bind:clientHeight={heightPx}>
+<div class="canvas" bind:clientWidth={widthPx} bind:clientHeight={heightPx} {ondragover} {ondrop} role="presentation">
   <svg
     bind:this={svg}
     class="tool-{store.tool}"
@@ -153,6 +180,10 @@
       imageUrl={floor.background ? store.imageUrls[floor.background.blobKey] : undefined}
     />
     <WallsLayer walls={floor.walls} selected={selectedWall(floor, store.selection)} zoom={view.zoom} />
+    <DevicesLayer
+      devices={floorDevices}
+      selectedId={selectedDevice(store.project.devices, floor.id, store.selection)?.id}
+    />
     <Overlay tool={active} zoom={view.zoom} wallThickness={store.wallThickness} />
   </svg>
 </div>
@@ -161,7 +192,7 @@
   <NumberDialog
     title="Kalibreren"
     label="Werkelijke afstand tussen de twee punten"
-    note={floor.walls.length > 0 ? 'De muren op deze verdieping schalen mee.' : undefined}
+    note={calibrationNote}
     onconfirm={(realCm) => tools.calibrate.confirmDistance(realCm)}
     oncancel={() => tools.calibrate.cancel()}
   />

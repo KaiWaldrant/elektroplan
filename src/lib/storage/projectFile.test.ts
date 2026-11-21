@@ -63,4 +63,29 @@ describe('project file', () => {
     });
     await expect(importProjectFile(text, memoryBlobs().putBlob)).rejects.toThrow(/ingebedde/);
   });
+
+  it('writes file version 2', async () => {
+    const text = await exportProjectFile(createProject(), memoryBlobs().getBlob);
+    expect(JSON.parse(text).version).toBe(2);
+  });
+
+  it('opens a version 1 file and migrates its project', async () => {
+    const { devices: _, ...oldProject } = { ...createProject('Oud'), version: 1 };
+    const text = JSON.stringify({ format: 'elektroplan', version: 1, project: oldProject, blobs: {} });
+    const opened = await importProjectFile(text, memoryBlobs().putBlob);
+    expect(opened.version).toBe(2);
+    expect(opened.devices).toEqual([]);
+  });
+
+  it('keeps the Toestellen of a version 2 file', async () => {
+    const p = createProject();
+    p.devices.push({ id: 'd1', type: 'lightPoint', placement: { floorId: p.floors[0].id, at: { x: 120, y: 80 } } });
+    const opened = await importProjectFile(await exportProjectFile(p, memoryBlobs().getBlob), memoryBlobs().putBlob);
+    expect(opened.devices).toEqual(p.devices);
+  });
+
+  it('refuses a file from a newer version of the app', async () => {
+    const text = JSON.stringify({ format: 'elektroplan', version: 3, project: createProject(), blobs: {} });
+    await expect(importProjectFile(text, memoryBlobs().putBlob)).rejects.toThrow(/nieuwere versie/);
+  });
 });
