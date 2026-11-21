@@ -1,6 +1,7 @@
 <script lang="ts">
   import { dist } from '../model/geometry';
   import { formatDecimal, parseDecimal, parsePositiveDecimal } from '../model/numbers';
+  import { selectedDevice } from '../model/devices';
   import { findWall, selectedWall, setWallLength } from '../model/walls';
   import { store } from '../state/store.svelte';
   import NumberDialog from './NumberDialog.svelte';
@@ -10,6 +11,7 @@
   const floor = $derived(store.floor);
   const bg = $derived(floor.background);
   const wall = $derived(selectedWall(floor, store.selection));
+  const device = $derived(selectedDevice(store.project.devices, floor.id, store.selection));
   let lengthDialog = $state(false);
 
   function confirmWallLength(len: number) {
@@ -74,7 +76,7 @@
 
   <section>
     <h3>Toestellen</h3>
-    {#if store.selection?.kind === 'device'}
+    {#if device}
       <p>Geselecteerd: <strong>Lichtpunt</strong></p>
       <button class="danger" onclick={() => store.removeSelection()}>Toestel verwijderen <kbd>Del</kbd></button>
     {/if}

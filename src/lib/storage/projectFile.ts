@@ -2,12 +2,12 @@
  * The project file the user saves: the project plus its plan images as data URLs, so one file is the
  * whole project. Reading and writing it never touches the network (ADR 0002).
  */
-import { migrateProject } from '../model/migrate';
+import { assertKnownVersion, migrateProject } from '../model/migrate';
 import { blobKeys } from '../model/project';
-import type { Id, Project } from '../model/types';
+import { PROJECT_VERSION, type Id, type Project } from '../model/types';
 
-/** Version of the file wrapper; it follows the project version. Older files are read and migrated. */
-const FILE_VERSION = 2;
+/** The file wrapper has the same version as the project inside it; older files are read and migrated. */
+const FILE_VERSION = PROJECT_VERSION;
 
 interface ProjectFile {
   format: 'elektroplan';
@@ -21,7 +21,7 @@ function parseProjectFile(text: string): ProjectFile {
   if (data.format !== 'elektroplan' || typeof data.version !== 'number' || !data.project) {
     throw new Error('Dit is geen geldig Elektroplan-projectbestand.');
   }
-  if (data.version > FILE_VERSION) throw new Error('Dit project komt uit een nieuwere versie van Elektroplan.');
+  assertKnownVersion(data.version);
   return { format: 'elektroplan', version: FILE_VERSION, project: migrateProject(data.project), blobs: data.blobs ?? {} };
 }
 

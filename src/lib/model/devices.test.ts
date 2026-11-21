@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { devicesOnFloor, hitDevice, moveDevice, placeLightPoint, removeDevice, removeFloor } from './devices';
-import { createFloor, createProject } from './project';
+import { devicesOnFloor, hitDevice, moveDevice, placeLightPoint, removeDevice, selectedDevice } from './devices';
+import { createFloor, createProject, removeFloor } from './project';
 import type { Project } from './types';
 
 function twoFloors(): Project {
@@ -61,6 +61,21 @@ describe('removeDevice', () => {
     const keep = placeLightPoint(p, 'f0', { x: 50, y: 0 });
     removeDevice(p, d.id);
     expect(p.devices).toEqual([keep]);
+  });
+});
+
+describe('selectedDevice', () => {
+  it('finds the selected Toestel when it is on the shown floor', () => {
+    const p = twoFloors();
+    const d = placeLightPoint(p, 'f0', { x: 0, y: 0 });
+    expect(selectedDevice(p.devices, 'f0', { kind: 'device', id: d.id })).toBe(d);
+  });
+  it('is undefined for a Toestel on another floor, a wall selection or no selection', () => {
+    const p = twoFloors();
+    const d = placeLightPoint(p, 'f1', { x: 0, y: 0 });
+    expect(selectedDevice(p.devices, 'f0', { kind: 'device', id: d.id })).toBeUndefined();
+    expect(selectedDevice(p.devices, 'f1', { kind: 'wall', id: d.id })).toBeUndefined();
+    expect(selectedDevice(p.devices, 'f1', null)).toBeUndefined();
   });
 });
 

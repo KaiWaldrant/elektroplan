@@ -6,7 +6,7 @@
   import { store } from '../state/store.svelte';
   import type { Tool } from '../state/tools';
   import NumberDialog from './NumberDialog.svelte';
-  import { devicesOnFloor, placeLightPoint } from '../model/devices';
+  import { devicesOnFloor, placeLightPoint, selectedDevice } from '../model/devices';
   import BackgroundLayer from './canvas/BackgroundLayer.svelte';
   import DevicesLayer from './canvas/DevicesLayer.svelte';
   import { DEVICE_DRAG_TYPE, isDeviceType } from './canvas/deviceDrag';
@@ -39,15 +39,10 @@
   const cmPerScreenPx = $derived(1 / view.zoom);
   const floorDevices = $derived(devicesOnFloor(store.project.devices, floor.id));
   /** Calibrating moves what is placed on the floor (ADR 0004); the dialog says so. */
-  const calibrationNote = $derived(
-    floor.walls.length > 0 && floorDevices.length > 0
-      ? 'De muren en Toestellen op deze verdieping schalen mee.'
-      : floor.walls.length > 0
-        ? 'De muren op deze verdieping schalen mee.'
-        : floorDevices.length > 0
-          ? 'De Toestellen op deze verdieping schalen mee.'
-          : undefined,
-  );
+  const calibrationNote = $derived.by(() => {
+    const moving = [floor.walls.length > 0 && 'muren', floorDevices.length > 0 && 'toestellen'].filter(Boolean);
+    return moving.length ? `De ${moving.join(' en ')} op deze verdieping schalen mee.` : undefined;
+  });
 
   // ---------------------------------------------------------------- view
   /** The pointer position relative to the canvas's top-left corner, in screen px. */
@@ -187,7 +182,7 @@
     <WallsLayer walls={floor.walls} selected={selectedWall(floor, store.selection)} zoom={view.zoom} />
     <DevicesLayer
       devices={floorDevices}
-      selectedId={store.selection?.kind === 'device' ? store.selection.id : undefined}
+      selectedId={selectedDevice(store.project.devices, floor.id, store.selection)?.id}
     />
     <Overlay tool={active} zoom={view.zoom} wallThickness={store.wallThickness} />
   </svg>

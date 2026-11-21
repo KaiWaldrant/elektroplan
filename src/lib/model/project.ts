@@ -25,3 +25,10 @@ export function createProject(name = 'Nieuw project'): Project {
 export function blobKeys(p: Project): Id[] {
   return p.floors.flatMap((f) => (f.background ? [f.background.blobKey] : []));
 }
+
+/** Delete a floor together with the Toestellen placed on it; the last floor is never deleted. */
+export function removeFloor(project: Project, floorId: Id): void {
+  if (project.floors.length <= 1) return;
+  project.floors = project.floors.filter((f) => f.id !== floorId);
+  project.devices = project.devices.filter((d) => d.placement?.floorId !== floorId);
+}

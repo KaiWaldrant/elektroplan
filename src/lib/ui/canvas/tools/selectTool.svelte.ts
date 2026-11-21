@@ -24,7 +24,7 @@ export class SelectTool implements CanvasTool {
   private drag: Drag | null = null;
 
   readonly hint =
-    'Klik een muur of Toestel om te selecteren; sleep om te verplaatsen. Sleep de achtergrond of gebruik het muiswiel om te pannen/zoomen.';
+    'Klik een muur of toestel om te selecteren; sleep om te verplaatsen. Sleep de achtergrond of gebruik het muiswiel om te pannen/zoomen.';
   readonly snapMark = null;
 
   pointerDown(p: CanvasPointer): PressResult {

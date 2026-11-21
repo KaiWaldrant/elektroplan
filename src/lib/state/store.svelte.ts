@@ -1,6 +1,6 @@
-import { removeDevice, removeFloor } from '../model/devices';
+import { removeDevice, selectedDevice } from '../model/devices';
 import { migrateProject } from '../model/migrate';
-import { blobKeys, createFloor, createProject, uid } from '../model/project';
+import { blobKeys, createFloor, createProject, removeFloor, uid } from '../model/project';
 import type { Background, Floor, Id, Point, Project, Selection } from '../model/types';
 import { getBlob, loadLastProject, putBlob, saveProject } from '../storage/idb';
 import { exportProjectFile, importProjectFile } from '../storage/projectFile';
@@ -146,7 +146,8 @@ class Store {
   removeSelection() {
     const sel = this.selection;
     if (sel?.kind === 'wall') this.mutateFloor((f) => (f.walls = f.walls.filter((w) => w.id !== sel.id)));
-    if (sel?.kind === 'device') this.mutate((p) => removeDevice(p, sel.id));
+    const device = selectedDevice(this.project.devices, this.activeFloorId, sel);
+    if (device) this.mutate((p) => removeDevice(p, device.id));
     this.selection = null;
   }
 
@@ -156,6 +157,7 @@ class Store {
     const f = createFloor(`Verdieping ${this.project.floors.length}`, top + 300);
     this.mutate((p) => p.floors.push(f));
     this.activeFloorId = f.id;
+    this.selection = null;
   }
 
   removeFloor(id: Id) {
