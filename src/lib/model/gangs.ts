@@ -1,7 +1,7 @@
-import { findDevice, hitDevice, moveDevice, rotateDevice, SYMBOL_CM, symbolReach } from './devices';
+import { findDevice, hitDevice, moveDevice, removeDevice, rotateDevice, setDeviceKind, SYMBOL_CM, symbolReach } from './devices';
 import { isWallMounted } from './deviceTypes';
 import { uid } from './project';
-import type { Gang, Id, Orientation, PlacedDevice, Placement, Point, Project } from './types';
+import type { DeviceKind, Gang, Id, Orientation, PlacedDevice, Placement, Point, Project, Wall } from './types';
 
 /** The stored Combinatie a Toestel is in, if any. */
 export function gangOf(project: Project, deviceId: Id): Gang | undefined {
@@ -60,10 +60,16 @@ function layout(project: Project, gang: Gang, fixedId: Id = gang.deviceIds[0], p
 /**
  * Add Toestel `deviceId` to the Combinatie of Toestel `targetId`, at the end nearest to `drop`
  * (where it was dropped). A lone target becomes a horizontal Combinatie of two. Side by side, the
- * others stay where they are; stacked, one added at the wall pushes the others out.
+ * others stay where they are; stacked, one added at the wall pushes the others out. Only
+ * wall-mounted Toestellen join. The Combinatie keeps its own Afwerking, or else takes the one the
+ * joining Toestel had on its own.
  */
 export function joinGang(project: Project, deviceId: Id, targetId: Id, drop: Point): void {
+  const device = findDevice(project.devices, deviceId);
+  const target = findDevice(project.devices, targetId);
+  if (!device?.placement || !target?.placement || !isWallMounted(device) || !isWallMounted(target)) return;
   const old = gangOf(project, deviceId);
+  const ownFinish = old?.deviceIds.length === 1 ? old.finish : undefined;
   if (old) takeOut(project, old, deviceId);
   let gang = gangOf(project, targetId);
   if (!gang) {
@@ -75,6 +81,7 @@ export function joinGang(project: Project, deviceId: Id, targetId: Id, drop: Poi
   if (!start) return;
   const off = offsets(project, gang);
   const t = dot({ x: drop.x - start.at.x, y: drop.y - start.at.y }, direction(gang.orientation, start.rotation));
+  if (gang.finish === undefined && ownFinish !== undefined) gang.finish = ownFinish;
   if (t < off[off.length - 1] / 2) {
     gang.deviceIds.unshift(deviceId);
     if (gang.orientation === 'vertical') layout(project, gang, deviceId, start);
@@ -167,8 +174,8 @@ export function rotateGang(project: Project, deviceId: Id): void {
 }
 
 /**
- * Bring the Combinaties in line with the Toestellen after they changed (deleted, moved to another
- * kind, floor deleted): take out Toestellen that are gone or no longer wall-mounted, drop
+ * Bring the Combinaties in line with the Toestellen after a change made outside this module (floor
+ * deleted, calibration; Toestellen deleted or changed in kind directly): take out Toestellen that are gone or no longer wall-mounted, drop
  * Combinaties that are left empty or alone without their own Afwerking, and lay the rest out again.
  */
 export function tidyGangs(project: Project): void {
@@ -191,4 +198,23 @@ export function joinTargetAt(project: Project, floorId: Id, p: Point, slack: num
   const skip = new Set(excludeId ? gangMembers(project, excludeId).map((d) => d.id) : []);
   const candidates = project.devices.filter((d) => !skip.has(d.id) && isWallMounted(d));
   return hitDevice(candidates, floorId, p, slack);
+}
+
+/** Delete Toestel `deviceId`; its Combinatie closes up as when it is split off (stacked: back to the wall). */
+export function removeDeviceAndCloseGang(project: Project, deviceId: Id): void {
+  const gang = gangOf(project, deviceId);
+  if (gang) takeOut(project, gang, deviceId);
+  removeDevice(project, deviceId);
+}
+
+/**
+ * Change what kind of Toestel `deviceId` is (see setDeviceKind). One that is no longer wall-mounted
+ * is split off its Combinatie first; otherwise the Combinatie is laid out again (a dedicated
+ * Contactdoos takes more room when stacked).
+ */
+export function setDeviceKindInGang(project: Project, walls: Wall[], deviceId: Id, kind: DeviceKind): void {
+  if (!isWallMounted(kind)) leaveGang(project, deviceId);
+  setDeviceKind(project.devices, walls, deviceId, kind);
+  const gang = gangOf(project, deviceId);
+  if (gang) layout(project, gang);
 }

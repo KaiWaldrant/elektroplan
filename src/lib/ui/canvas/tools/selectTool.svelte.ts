@@ -1,3 +1,4 @@
+import { isWallMounted } from '../../../model/deviceTypes';
 import { findDevice, hitDevice, positionAt, selectedDevice } from '../../../model/devices';
 import { gangMembers, joinGang, joinTargetAt, moveGang, rotateGang } from '../../../model/gangs';
 import { dist, hitWall } from '../../../model/geometry';
@@ -23,10 +24,12 @@ type Drag =
   /** Dragging a whole wall. */
   | (OffsetDrag & { kind: 'wall'; wallId: Id; wallsAtStart: Wall[] })
   /**
-   * Dragging a Toestel, with the rest of its Combinatie. A lone one (`alone`) joins the Combinatie
-   * it is dropped on; `last` is where the pointer was last.
+   * Dragging a Toestel, with the rest of its Combinatie. The Combinatie's first Toestel (`leadId`,
+   * at `atStart` when pressed) leads and snaps to walls, so a stacked one stays against the wall. A
+   * lone wall Toestel (`canJoin`) joins the Combinatie it is dropped on; `last` is where the pointer
+   * was last.
    */
-  | (OffsetDrag & { kind: 'device'; deviceId: Id; atStart: Point; alone: boolean; last: Point });
+  | (OffsetDrag & { kind: 'device'; deviceId: Id; leadId: Id; atStart: Point; canJoin: boolean; last: Point });
 
 /** Extra screen px around a wall that still counts as a click on it. */
 const HIT_PX = 4;
@@ -57,12 +60,15 @@ export class SelectTool implements CanvasTool {
     const device = hitDevice(store.project.devices, store.floor.id, p.world, HIT_PX * p.cmPerScreenPx);
     if (device) {
       store.selection = { kind: 'device', id: device.id };
+      const members = gangMembers(store.project, device.id);
+      const lead = members[0] ?? device;
       this.drag = {
         kind: 'device',
         deviceId: device.id,
+        leadId: lead.id,
         pointerStart: p.world,
-        atStart: { ...device.placement.at },
-        alone: gangMembers(store.project, device.id).length === 1,
+        atStart: { ...lead.placement.at },
+        canJoin: members.length === 1 && isWallMounted(device),
         last: p.world,
         moved: false,
       };
@@ -96,13 +102,13 @@ export class SelectTool implements CanvasTool {
       if (off) store.applyFloor((f) => translateWall(f.walls, d.wallsAtStart, d.wallId, Math.round(off.x), Math.round(off.y)));
     } else if (d?.kind === 'device') {
       const off = this.offset(d, p);
-      const device = findDevice(store.project.devices, d.deviceId);
-      if (!off || !device) return;
+      const lead = findDevice(store.project.devices, d.leadId);
+      if (!off || !lead) return;
       const target = { x: d.atStart.x + off.x, y: d.atStart.y + off.y };
-      const { at, rotation } = positionAt(device, store.floor.walls, target, p.free);
-      store.apply((pr) => moveGang(pr, d.deviceId, at, rotation));
+      const { at, rotation } = positionAt(lead, store.floor.walls, target, p.free);
+      store.apply((pr) => moveGang(pr, d.leadId, at, rotation));
       d.last = p.world;
-      const join = d.alone && !p.free && joinTargetAt(store.project, store.floor.id, p.world, HIT_PX * p.cmPerScreenPx, d.deviceId);
+      const join = d.canJoin && !p.free && joinTargetAt(store.project, store.floor.id, p.world, HIT_PX * p.cmPerScreenPx, d.deviceId);
       this.joinTarget = join ? join.id : null;
     }
   }

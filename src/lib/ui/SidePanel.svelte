@@ -8,8 +8,14 @@
   import { DEVICE_DRAG_TYPE, WALL_DEVICE_DRAG_TYPE } from './canvas/deviceDrag';
   import DeviceSymbol from './symbols/DeviceSymbol.svelte';
   import { DEVICE_TYPES, deviceLabel, isWallMounted, kindFromKey, kindKey, variantsOf } from '../model/deviceTypes';
-  import { setDeviceKind } from '../model/devices';
-  import { gangMembers, gangOf, leaveGang, setGangFinish, setGangOrientation, tidyGangs } from '../model/gangs';
+  import {
+    gangMembers,
+    gangOf,
+    leaveGang,
+    setDeviceKindInGang,
+    setGangFinish,
+    setGangOrientation,
+  } from '../model/gangs';
   import type { Orientation } from '../model/types';
 
   const floor = $derived(store.floor);
@@ -112,11 +118,7 @@
             onchange={(e) => {
               const kind = kindFromKey((e.target as HTMLSelectElement).value);
               const id = device?.id;
-              if (kind && id)
-                store.mutate((p) => {
-                  setDeviceKind(p.devices, floor.walls, id, kind);
-                  tidyGangs(p);
-                });
+              if (kind && id) store.mutate((p) => setDeviceKindInGang(p, floor.walls, id, kind));
             }}
           >
             {#each variants as v (v.key)}<option value={v.key}>{v.label}</option>{/each}

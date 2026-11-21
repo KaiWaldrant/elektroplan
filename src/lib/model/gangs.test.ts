@@ -6,8 +6,10 @@ import {
   joinGang,
   leaveGang,
   moveGang,
+  removeDeviceAndCloseGang,
   rotateGang,
   setGangFinish,
+  setDeviceKindInGang,
   setGangOrientation,
   tidyGangs,
 } from './gangs';
@@ -227,5 +229,65 @@ describe('tidyGangs', () => {
     removeFloor(p, 'f0');
     tidyGangs(p);
     expect(p.gangs).toEqual([]);
+  });
+});
+
+describe('joinGang guards', () => {
+  it('never takes in a ceiling Toestel', () => {
+    const { p, ids: [a] } = withSockets({ x: 100, y: 100 });
+    const lamp = placeDevice(p, 'f0', { type: 'lightPoint', mount: 'ceiling' }, { x: 300, y: 300 });
+    joinGang(p, lamp.id, a, { x: 110, y: 100 });
+    expect(p.gangs).toEqual([]);
+    expect(at(p, lamp.id)).toEqual({ x: 300, y: 300 });
+  });
+
+  it('keeps the own Afwerking of a lone Toestel when the Combinatie it joins has none', () => {
+    const { p, ids: [a, b] } = withSockets({ x: 100, y: 100 }, { x: 300, y: 300 });
+    setGangFinish(p, b, 'Niko Pure staal');
+    joinGang(p, b, a, { x: 110, y: 100 });
+    expect(p.gangs.map((g) => g.deviceIds)).toEqual([[a, b]]);
+    expect(gangFinish(p, a)).toBe('Niko Pure staal');
+  });
+
+  it('keeps the Afwerking of the Combinatie it joins when that has its own', () => {
+    const { p, ids: [a, b] } = withSockets({ x: 100, y: 100 }, { x: 300, y: 300 });
+    setGangFinish(p, a, 'Niko Original wit');
+    setGangFinish(p, b, 'Niko Pure staal');
+    joinGang(p, b, a, { x: 110, y: 100 });
+    expect(gangFinish(p, b)).toBe('Niko Original wit');
+  });
+});
+
+describe('removeDeviceAndCloseGang', () => {
+  it('deletes the first Toestel of a vertical Combinatie and pulls the rest back to the wall', () => {
+    const { p, ids: [a, b, c] } = withSockets({ x: 100, y: 100 }, { x: 300, y: 300 }, { x: 500, y: 300 });
+    joinGang(p, b, a, { x: 110, y: 100 });
+    joinGang(p, c, b, { x: 135, y: 100 });
+    setGangOrientation(p, a, 'vertical');
+    removeDeviceAndCloseGang(p, a);
+    expect(p.devices.map((d) => d.id)).toEqual([b, c]);
+    expect([at(p, b), at(p, c)]).toEqual([{ x: 100, y: 100 }, { x: 100, y: 70 }]);
+  });
+});
+
+describe('setDeviceKindInGang', () => {
+  it('splits a Toestel off that becomes a ceiling one, so it does not lie on the others', () => {
+    const { p, ids: [a, b] } = withSockets({ x: 100, y: 100 }, { x: 300, y: 300 });
+    p.devices = p.devices.map((d) => ({ ...d, type: 'fan', mount: 'wall' }) as typeof d);
+    joinGang(p, b, a, { x: 110, y: 100 });
+    setGangOrientation(p, a, 'vertical');
+    setDeviceKindInGang(p, [], a, { type: 'fan', mount: 'ceiling' });
+    expect(p.gangs).toEqual([]);
+    expect(at(p, b)).toEqual({ x: 100, y: 100 });
+    expect(at(p, a)).not.toEqual(at(p, b));
+    expect(p.devices[0]).toMatchObject({ type: 'fan', mount: 'ceiling' });
+  });
+
+  it('makes room when a stacked Contactdoos gets an appliance', () => {
+    const { p, ids: [a, b] } = withSockets({ x: 100, y: 100 }, { x: 300, y: 300 });
+    joinGang(p, b, a, { x: 110, y: 100 });
+    setGangOrientation(p, a, 'vertical');
+    setDeviceKindInGang(p, [], a, { type: 'socket', appliance: 'oven' });
+    expect(at(p, b)).toEqual({ x: 100, y: 58 });
   });
 });
