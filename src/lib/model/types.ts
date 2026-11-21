@@ -47,18 +47,33 @@ export interface Placement {
   floorId: Id;
   /** Centre of the symbol, in world cm. */
   at: Point;
+  /**
+   * Clockwise turn of the symbol in degrees. At 0 the symbol's wall side points down (+y);
+   * a Toestel snapped to a wall is turned so that side faces the wall.
+   */
+  rotation: number;
 }
 
-/** A Toestel. Only the Lichtpunt exists so far (#10); more types follow in #11. */
-export interface Device {
+export type SwitchVariant = 'singlePole' | 'twoWay' | 'intermediate' | 'dimmer';
+
+/** What kind of Toestel it is: the glossary term plus its variant. */
+export type DeviceKind =
+  | { type: 'lightPoint'; mount: 'ceiling' | 'wall' }
+  | { type: 'pushButton' }
+  | { type: 'switch'; variant: SwitchVariant };
+
+/** A Toestel. */
+export type Device = DeviceKind & {
   id: Id;
-  type: 'lightPoint';
   /** Absent when the Toestel is not on any plan (yet). */
   placement?: Placement;
-}
+};
+
+/** A Toestel that is on a plan. */
+export type PlacedDevice = Device & { placement: Placement };
 
 /** Current version of the project data; older projects are migrated on load (see migrate.ts). */
-export const PROJECT_VERSION = 2;
+export const PROJECT_VERSION = 3;
 
 export interface Project {
   version: typeof PROJECT_VERSION;

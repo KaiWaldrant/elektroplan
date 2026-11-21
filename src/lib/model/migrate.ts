@@ -18,5 +18,14 @@ export function migrateProject(raw: unknown): Project {
   const project = { ...p } as Record<string, unknown>;
   // 1 → 2: Toestellen (#10)
   if (project.version === 1) Object.assign(project, { version: 2, devices: [] });
+  // 2 → 3: Toestel variants and rotation (#11); every Toestel so far is a ceiling Lichtpunt
+  if (project.version === 2) {
+    const devices = (project.devices as { placement?: object }[]).map((d) => ({
+      ...d,
+      mount: 'ceiling',
+      ...(d.placement && { placement: { ...d.placement, rotation: 0 } }),
+    }));
+    Object.assign(project, { version: 3, devices });
+  }
   return project as unknown as Project;
 }

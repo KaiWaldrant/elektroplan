@@ -12,8 +12,27 @@ const v1 = () => ({
 });
 
 describe('migrateProject', () => {
-  it('gives a version 1 project an empty list of Toestellen and makes it version 2', () => {
-    expect(migrateProject(v1())).toEqual({ ...v1(), version: 2, devices: [] });
+  it('gives a version 1 project an empty list of Toestellen and makes it current', () => {
+    expect(migrateProject(v1())).toEqual({ ...v1(), version: 3, devices: [] });
+  });
+
+  it('makes the Lichtpunten of a version 2 project ceiling Lichtpunten, not turned', () => {
+    const v2 = {
+      ...v1(),
+      version: 2,
+      devices: [
+        { id: 'd1', type: 'lightPoint', placement: { floorId: 'f1', at: { x: 10, y: 20 } } },
+        { id: 'd2', type: 'lightPoint' },
+      ],
+    };
+    expect(migrateProject(v2)).toEqual({
+      ...v1(),
+      version: 3,
+      devices: [
+        { id: 'd1', type: 'lightPoint', mount: 'ceiling', placement: { floorId: 'f1', at: { x: 10, y: 20 }, rotation: 0 } },
+        { id: 'd2', type: 'lightPoint', mount: 'ceiling' },
+      ],
+    });
   });
 
   it('leaves a current project as it is', () => {
@@ -22,7 +41,7 @@ describe('migrateProject', () => {
   });
 
   it('refuses a project from a newer version of the app', () => {
-    expect(() => migrateProject({ ...v1(), version: 3 })).toThrow('nieuwere versie');
+    expect(() => migrateProject({ ...v1(), version: 4 })).toThrow('nieuwere versie');
   });
 
   it('refuses something that is not a project', () => {
@@ -34,7 +53,7 @@ describe('migrateProject', () => {
 describe('createProject', () => {
   it('starts at the current version without Toestellen', () => {
     const p = createProject();
-    expect(p.version).toBe(2);
+    expect(p.version).toBe(3);
     expect(p.devices).toEqual([]);
   });
 });

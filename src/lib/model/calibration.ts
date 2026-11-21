@@ -33,5 +33,5 @@ export function calibrateFloor(project: Project, floorId: Id, p1: Point, p2: Poi
     w.a = scale(w.a);
     w.b = scale(w.b);
   }
-  for (const d of devicesOnFloor(project.devices, floorId)) d.placement = { floorId, at: scale(d.placement!.at) };
+  for (const d of devicesOnFloor(project.devices, floorId)) d.placement = { ...d.placement, at: scale(d.placement.at) };
 }

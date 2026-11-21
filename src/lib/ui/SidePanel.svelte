@@ -6,7 +6,9 @@
   import { store } from '../state/store.svelte';
   import NumberDialog from './NumberDialog.svelte';
   import { DEVICE_DRAG_TYPE } from './canvas/deviceDrag';
-  import LightPointSymbol from './symbols/LightPointSymbol.svelte';
+  import DeviceSymbol from './symbols/DeviceSymbol.svelte';
+  import { DEVICE_TYPES, deviceLabel, kindFromKey, kindKey, variantsOf } from '../model/deviceTypes';
+  import { setDeviceKind } from '../model/devices';
 
   const floor = $derived(store.floor);
   const bg = $derived(floor.background);
@@ -77,24 +79,46 @@
   <section>
     <h3>Toestellen</h3>
     {#if device}
-      <p>Geselecteerd: <strong>Lichtpunt</strong></p>
+      {@const variants = variantsOf(device)}
+      <p>Geselecteerd: <strong>{deviceLabel(device)}</strong></p>
+      {#if variants.length > 1}
+        <label>
+          Soort
+          <select
+            value={kindKey(device)}
+            onchange={(e) => {
+              const kind = kindFromKey((e.target as HTMLSelectElement).value);
+              const id = device?.id;
+              if (kind && id) store.mutate((p) => setDeviceKind(p.devices, id, kind));
+            }}
+          >
+            {#each variants as v (v.key)}<option value={v.key}>{v.label}</option>{/each}
+          </select>
+        </label>
+      {/if}
+      <p class="muted">R draait het toestel een kwartslag.</p>
       <button class="danger" onclick={() => store.removeSelection()}>Toestel verwijderen <kbd>Del</kbd></button>
     {/if}
-    <p class="muted">Sleep een Toestel op het plan.</p>
-    <div
-      class="palette-item"
-      draggable="true"
-      role="button"
-      tabindex="-1"
-      ondragstart={(e) => {
-        e.dataTransfer?.setData(DEVICE_DRAG_TYPE, 'lightPoint');
-        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
-      }}
-    >
-      <svg viewBox="-20 -20 40 40" width="20" height="20" aria-hidden="true">
-        <LightPointSymbol at={{ x: 0, y: 0 }} />
-      </svg>
-      Lichtpunt
+    <p class="muted">Sleep een toestel op het plan; aan een muur klikt het vast (Alt = los).</p>
+    <div class="palette">
+      {#each DEVICE_TYPES as t (t.key)}
+        <div
+          class="palette-item"
+          draggable="true"
+          role="button"
+          tabindex="-1"
+          title={t.label}
+          ondragstart={(e) => {
+            e.dataTransfer?.setData(DEVICE_DRAG_TYPE, t.key);
+            if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
+          }}
+        >
+          <svg viewBox="-20 -20 40 40" width="22" height="22" aria-hidden="true">
+            <DeviceSymbol kind={t.kind} />
+          </svg>
+          {t.label}
+        </div>
+      {/each}
     </div>
   </section>
 
@@ -193,8 +217,14 @@
     cursor: grab;
     user-select: none;
   }
+  .palette {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
   .palette-item svg {
     stroke: currentColor;
-    stroke-width: 3;
+    stroke-width: 1.5;
   }
 </style>
