@@ -1,5 +1,5 @@
 import { isWallMounted } from './deviceTypes';
-import { dist, projectOnSegment } from './geometry';
+import { dist, projectOnSegment, wallNormal } from './geometry';
 import { uid } from './project';
 import type { Device, DeviceKind, Id, PlacedDevice, Point, Project, Selection, Wall } from './types';
 
@@ -13,6 +13,10 @@ export function placeDevice(project: Project, floorId: Id, kind: DeviceKind, at:
   const device: Device = { ...kind, id: uid(), placement: { floorId, at: round(at), rotation } };
   project.devices.push(device);
   return device;
+}
+
+export function findDevice(devices: Device[], id: Id): Device | undefined {
+  return devices.find((d) => d.id === id);
 }
 
 /** The Toestellen placed on floor `floorId`. */
@@ -44,20 +48,29 @@ export function hitDevice(devices: Device[], floorId: Id, p: Point, radius: numb
  * if given (mutates the device).
  */
 export function moveDevice(devices: Device[], id: Id, at: Point, rotation?: number): void {
-  const d = devices.find((x) => x.id === id);
+  const d = findDevice(devices, id);
   if (d?.placement) d.placement = { ...d.placement, at: round(at), rotation: rotation ?? d.placement.rotation };
 }
 
 /** Turn a placed Toestel 90° clockwise (mutates the device). */
 export function rotateDevice(devices: Device[], id: Id): void {
-  const d = devices.find((x) => x.id === id);
+  const d = findDevice(devices, id);
   if (d?.placement) d.placement = { ...d.placement, rotation: (d.placement.rotation + 90) % 360 };
 }
 
-/** Change what kind of Toestel it is (e.g. its variant), keeping its id and placement. */
-export function setDeviceKind(devices: Device[], id: Id, kind: DeviceKind): void {
+/**
+ * Change what kind of Toestel it is (e.g. its variant), keeping its id and position. A Toestel that
+ * becomes wall-mounted snaps to a near wall like a drop; one that is no longer wall-mounted is turned
+ * back to 0 (a ceiling cross has no wall side).
+ */
+export function setDeviceKind(devices: Device[], walls: Wall[], id: Id, kind: DeviceKind): void {
   const i = devices.findIndex((x) => x.id === id);
-  if (i >= 0) devices[i] = { ...kind, id, placement: devices[i].placement };
+  if (i < 0) return;
+  const old = devices[i].placement;
+  let placement = old;
+  if (old && isWallMounted(kind)) placement = { ...old, ...positionAt(kind, walls, old.at, false) };
+  else if (old) placement = { ...old, rotation: 0 };
+  devices[i] = { ...kind, id, placement };
 }
 
 /** Distance (cm) from a wall face within which a wall-mounted Toestel snaps to it. */
@@ -83,9 +96,8 @@ export function snapToWall(walls: Wall[], p: Point, tolerance: number, standoff 
   }
   if (!best) return null;
   const { wall, on } = best;
-  const len = dist(wall.a, wall.b) || 1;
   // unit normal of the wall, pointing to the side where p is
-  let n = { x: -(wall.b.y - wall.a.y) / len, y: (wall.b.x - wall.a.x) / len };
+  let n = wallNormal(wall);
   if ((p.x - on.x) * n.x + (p.y - on.y) * n.y < 0) n = { x: -n.x, y: -n.y };
   const out = wall.thickness / 2 + standoff;
   const rotation = (((Math.atan2(n.x, -n.y) * 180) / Math.PI) % 360 + 360) % 360;

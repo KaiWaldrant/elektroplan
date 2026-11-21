@@ -135,17 +135,31 @@ describe('rotateDevice', () => {
 });
 
 describe('setDeviceKind', () => {
+  const walls: Wall[] = [{ id: 'w', a: { x: 0, y: 0 }, b: { x: 400, y: 0 }, thickness: 10 }];
+
   it('changes the variant and keeps id and placement', () => {
     const p = twoFloors();
-    const d = placeDevice(p, 'f0', { type: 'switch', variant: 'singlePole' }, { x: 5, y: 5 }, 90);
-    setDeviceKind(p.devices, d.id, { type: 'switch', variant: 'twoWay' });
+    const d = placeDevice(p, 'f0', { type: 'switch', variant: 'singlePole' }, { x: 5, y: 200 }, 90);
+    setDeviceKind(p.devices, walls, d.id, { type: 'switch', variant: 'twoWay' });
     expect(p.devices[0]).toEqual({ id: d.id, type: 'switch', variant: 'twoWay', placement: d.placement });
   });
   it('drops fields of the old kind', () => {
     const p = twoFloors();
-    const d = placeLightPoint(p, 'f0', { x: 0, y: 0 });
-    setDeviceKind(p.devices, d.id, { type: 'pushButton' });
+    const d = placeLightPoint(p, 'f0', { x: 0, y: 200 });
+    setDeviceKind(p.devices, walls, d.id, { type: 'pushButton' });
     expect(p.devices[0]).not.toHaveProperty('mount');
+  });
+  it('turns a Toestel back to 0 when it becomes a ceiling Lichtpunt', () => {
+    const p = twoFloors();
+    const d = placeDevice(p, 'f0', { type: 'lightPoint', mount: 'wall' }, { x: 100, y: 20 }, 180);
+    setDeviceKind(p.devices, walls, d.id, ceiling);
+    expect(p.devices[0].placement).toEqual({ floorId: 'f0', at: { x: 100, y: 20 }, rotation: 0 });
+  });
+  it('snaps a Toestel to a near wall when it becomes wall-mounted, like a drop', () => {
+    const p = twoFloors();
+    const d = placeLightPoint(p, 'f0', { x: 100, y: 25 });
+    setDeviceKind(p.devices, walls, d.id, { type: 'lightPoint', mount: 'wall' });
+    expect(p.devices[0].placement).toEqual({ floorId: 'f0', at: { x: 100, y: 20 }, rotation: 180 });
   });
 });
 

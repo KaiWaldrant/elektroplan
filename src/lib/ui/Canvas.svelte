@@ -142,7 +142,8 @@
   }
 
   function onkeydown(e: KeyboardEvent) {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    // typing in a field or a dialog is not a canvas shortcut (same rule as App's shortcuts)
+    if (e.target instanceof HTMLElement && e.target.closest('input, textarea, select, .dialog')) return;
     if (e.key === ' ') {
       spaceDown = true;
       e.preventDefault();

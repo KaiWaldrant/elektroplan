@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DeviceKind } from '../../model/types';
+  import type { DeviceKind, SwitchVariant } from '../../model/types';
 
   /**
    * A Toestel's symbol per AREI Boek 1, Tabel 2.23 "Grafische symbolen" (sections E and G), drawn in
@@ -21,7 +21,12 @@
   }
 
   // arm directions, as in the table: single pole up-right; two-way adds down-left; intermediate all four
-  const ARMS = { singlePole: [30], twoWay: [30, 210], intermediate: [30, 150, 210, 330], dimmer: [] };
+  const ARMS: Record<SwitchVariant, number[]> = {
+    singlePole: [30],
+    twoWay: [30, 210],
+    intermediate: [30, 150, 210, 330],
+    dimmer: [],
+  };
 </script>
 
 {#if kind.type === 'lightPoint' && kind.mount === 'ceiling'}

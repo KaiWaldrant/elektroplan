@@ -1,4 +1,12 @@
-import { hitDevice, moveDevice, positionAt, rotateDevice, selectedDevice, SYMBOL_CM } from '../../../model/devices';
+import {
+  findDevice,
+  hitDevice,
+  moveDevice,
+  positionAt,
+  rotateDevice,
+  selectedDevice,
+  SYMBOL_CM,
+} from '../../../model/devices';
 import { dist, hitWall } from '../../../model/geometry';
 import { connectedEnds, moveEnds, selectedWall, translateWall } from '../../../model/walls';
 import type { Id, Point, Wall, WallEnd } from '../../../model/types';
@@ -88,7 +96,7 @@ export class SelectTool implements CanvasTool {
       if (off) store.applyFloor((f) => translateWall(f.walls, d.wallsAtStart, d.wallId, Math.round(off.x), Math.round(off.y)));
     } else if (d?.kind === 'device') {
       const off = this.offset(d, p);
-      const device = store.project.devices.find((x) => x.id === d.deviceId);
+      const device = findDevice(store.project.devices, d.deviceId);
       if (!off || !device) return;
       const target = { x: d.atStart.x + off.x, y: d.atStart.y + off.y };
       const { at, rotation } = positionAt(device, store.floor.walls, target, p.free);

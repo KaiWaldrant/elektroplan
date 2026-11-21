@@ -89,7 +89,7 @@
             onchange={(e) => {
               const kind = kindFromKey((e.target as HTMLSelectElement).value);
               const id = device?.id;
-              if (kind && id) store.mutate((p) => setDeviceKind(p.devices, id, kind));
+              if (kind && id) store.mutate((p) => setDeviceKind(p.devices, floor.walls, id, kind));
             }}
           >
             {#each variants as v (v.key)}<option value={v.key}>{v.label}</option>{/each}
