@@ -27,5 +27,7 @@ export function migrateProject(raw: unknown): Project {
     }));
     Object.assign(project, { version: 3, devices });
   }
+  // 3 → 4: Contactdozen, Datacontactdoos and Ventilator (#11b); only new kinds, the data stays as it is
+  if (project.version === 3) project.version = 4;
   return project as unknown as Project;
 }

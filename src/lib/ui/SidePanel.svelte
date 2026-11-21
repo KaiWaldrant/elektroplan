@@ -113,7 +113,7 @@
             if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
           }}
         >
-          <svg viewBox="-20 -20 40 40" width="22" height="22" aria-hidden="true">
+          <svg viewBox="-27 -27 54 54" width="24" height="24" aria-hidden="true">
             <DeviceSymbol kind={t.kind} />
           </svg>
           {t.label}

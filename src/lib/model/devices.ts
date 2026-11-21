@@ -29,13 +29,21 @@ export function selectedDevice(devices: Device[], floorId: Id, selection: Select
   return selection?.kind === 'device' ? devicesOnFloor(devices, floorId).find((d) => d.id === selection.id) : undefined;
 }
 
-/** The Toestel on floor `floorId` nearest to `p` within `radius` cm, if any. */
-export function hitDevice(devices: Device[], floorId: Id, p: Point, radius: number): PlacedDevice | undefined {
+/**
+ * How far (cm) a Toestel's symbol reaches from its centre: half the symbol size, or 27 for a
+ * Contactdoos with its appliance drawn in front of it.
+ */
+export function symbolReach(kind: DeviceKind): number {
+  return kind.type === 'socket' && kind.appliance ? 27 : SYMBOL_CM / 2;
+}
+
+/** The Toestel on floor `floorId` nearest to `p` within its symbol reach plus `slack` cm, if any. */
+export function hitDevice(devices: Device[], floorId: Id, p: Point, slack: number): PlacedDevice | undefined {
   let best: PlacedDevice | undefined;
-  let bestD = radius;
+  let bestD = Infinity;
   for (const d of devicesOnFloor(devices, floorId)) {
     const dd = dist(d.placement.at, p);
-    if (dd <= bestD) {
+    if (dd <= symbolReach(d) + slack && dd < bestD) {
       best = d;
       bestD = dd;
     }

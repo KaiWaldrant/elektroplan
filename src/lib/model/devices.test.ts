@@ -10,6 +10,7 @@ import {
   selectedDevice,
   setDeviceKind,
   snapToWall,
+  symbolReach,
 } from './devices';
 import { createFloor, createProject, removeFloor } from './project';
 import type { DeviceKind, Project, Wall } from './types';
@@ -49,18 +50,34 @@ describe('devicesOnFloor', () => {
   });
 });
 
+describe('symbolReach', () => {
+  it('is half the symbol size, or more for a Contactdoos with its appliance in front', () => {
+    expect(symbolReach({ type: 'socket' })).toBe(15);
+    expect(symbolReach({ type: 'fan', mount: 'wall' })).toBe(15);
+    expect(symbolReach({ type: 'socket', appliance: 'oven' })).toBe(27);
+  });
+});
+
 describe('hitDevice', () => {
-  it('finds the nearest Toestel on the floor within the radius', () => {
+  it('finds the nearest Toestel on the floor within its symbol reach plus the slack', () => {
     const p = twoFloors();
     placeLightPoint(p, 'f0', { x: 0, y: 0 });
     const near = placeLightPoint(p, 'f0', { x: 20, y: 0 });
     placeLightPoint(p, 'f1', { x: 14, y: 0 });
-    expect(hitDevice(p.devices, 'f0', { x: 14, y: 0 }, 15)).toBe(near);
+    expect(hitDevice(p.devices, 'f0', { x: 14, y: 0 }, 0)).toBe(near);
   });
-  it('is undefined when nothing is within the radius', () => {
+  it('is undefined when nothing is within reach', () => {
     const p = twoFloors();
     placeLightPoint(p, 'f0', { x: 0, y: 0 });
-    expect(hitDevice(p.devices, 'f0', { x: 16, y: 0 }, 15)).toBeUndefined();
+    expect(hitDevice(p.devices, 'f0', { x: 16, y: 0 }, 0)).toBeUndefined();
+    expect(hitDevice(p.devices, 'f0', { x: 16, y: 0 }, 2)).toBeDefined();
+  });
+  it('finds a Contactdoos by the appliance in front of it', () => {
+    const p = twoFloors();
+    const dedicated = placeDevice(p, 'f0', { type: 'socket', appliance: 'washingMachine' }, { x: 0, y: 0 });
+    placeDevice(p, 'f0', { type: 'socket' }, { x: 100, y: 0 });
+    expect(hitDevice(p.devices, 'f0', { x: 0, y: -22 }, 0)).toBe(dedicated);
+    expect(hitDevice(p.devices, 'f0', { x: 100, y: -22 }, 0)).toBeUndefined();
   });
 });
 
@@ -149,6 +166,18 @@ describe('setDeviceKind', () => {
     setDeviceKind(p.devices, walls, d.id, { type: 'pushButton' });
     expect(p.devices[0]).not.toHaveProperty('mount');
   });
+  it('drops the appliance when a dedicated Contactdoos becomes a plain one', () => {
+    const p = twoFloors();
+    const d = placeDevice(p, 'f0', { type: 'socket', appliance: 'washingMachine' }, { x: 100, y: 20 }, 180);
+    setDeviceKind(p.devices, walls, d.id, { type: 'socket' });
+    expect(p.devices[0]).not.toHaveProperty('appliance');
+  });
+  it('turns a Ventilator back to 0 when it becomes a ceiling one', () => {
+    const p = twoFloors();
+    const d = placeDevice(p, 'f0', { type: 'fan', mount: 'wall' }, { x: 100, y: 20 }, 180);
+    setDeviceKind(p.devices, walls, d.id, { type: 'fan', mount: 'ceiling' });
+    expect(p.devices[0].placement).toEqual({ floorId: 'f0', at: { x: 100, y: 20 }, rotation: 0 });
+  });
   it('turns a Toestel back to 0 when it becomes a ceiling Lichtpunt', () => {
     const p = twoFloors();
     const d = placeDevice(p, 'f0', { type: 'lightPoint', mount: 'wall' }, { x: 100, y: 20 }, 180);
@@ -205,7 +234,13 @@ describe('positionAt', () => {
     expect(positionAt(sw, walls, { x: 100, y: 200 }, false)).toEqual({ at: { x: 100, y: 200 } });
     expect(positionAt(sw, walls, { x: 100, y: 25 }, true)).toEqual({ at: { x: 100, y: 25 } });
   });
-  it('never snaps a ceiling Lichtpunt', () => {
+  it('never snaps a ceiling Lichtpunt or ceiling Ventilator', () => {
     expect(positionAt(ceiling, walls, { x: 100, y: 25 }, false)).toEqual({ at: { x: 100, y: 25 } });
+    expect(positionAt({ type: 'fan', mount: 'ceiling' }, walls, { x: 100, y: 25 }, false)).toEqual({ at: { x: 100, y: 25 } });
+  });
+  it('snaps a Contactdoos, Datacontactdoos and wall Ventilator like any wall-mounted Toestel', () => {
+    const kinds: DeviceKind[] = [{ type: 'socket', appliance: 'hob' }, { type: 'dataOutlet' }, { type: 'fan', mount: 'wall' }];
+    for (const kind of kinds)
+      expect(positionAt(kind, walls, { x: 100, y: 25 }, false)).toEqual({ at: { x: 100, y: 20 }, rotation: 180 });
   });
 });
