@@ -6,10 +6,11 @@
   import { store } from '../state/store.svelte';
   import type { Tool } from '../state/tools';
   import NumberDialog from './NumberDialog.svelte';
-  import { devicesOnFloor, placeLightPoint, selectedDevice } from '../model/devices';
+  import { kindFromKey } from '../model/deviceTypes';
+  import { devicesOnFloor, placeDevice, positionAt, selectedDevice } from '../model/devices';
   import BackgroundLayer from './canvas/BackgroundLayer.svelte';
   import DevicesLayer from './canvas/DevicesLayer.svelte';
-  import { DEVICE_DRAG_TYPE, isDeviceType } from './canvas/deviceDrag';
+  import { DEVICE_DRAG_TYPE } from './canvas/deviceDrag';
   import Overlay from './canvas/Overlay.svelte';
   import WallsLayer from './canvas/WallsLayer.svelte';
   import { PickTool } from './canvas/tools/pickTool.svelte';
@@ -130,18 +131,19 @@
   }
 
   function ondrop(e: DragEvent) {
-    const type = e.dataTransfer?.getData(DEVICE_DRAG_TYPE) ?? '';
-    if (!isDeviceType(type)) return;
+    const kind = kindFromKey(e.dataTransfer?.getData(DEVICE_DRAG_TYPE) ?? '');
+    if (!kind) return;
     e.preventDefault();
-    const at = toWorld(view, screenPoint(e));
+    const { at, rotation } = positionAt(kind, floor.walls, toWorld(view, screenPoint(e)), e.altKey);
     const floorId = floor.id;
     let id = '';
-    store.mutate((p) => (id = placeLightPoint(p, floorId, at).id));
+    store.mutate((p) => (id = placeDevice(p, floorId, kind, at, rotation).id));
     store.selection = { kind: 'device', id };
   }
 
   function onkeydown(e: KeyboardEvent) {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    // typing in a field or a dialog is not a canvas shortcut (same rule as App's shortcuts)
+    if (e.target instanceof HTMLElement && e.target.closest('input, textarea, select, .dialog')) return;
     if (e.key === ' ') {
       spaceDown = true;
       e.preventDefault();

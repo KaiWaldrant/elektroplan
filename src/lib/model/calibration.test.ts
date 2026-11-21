@@ -33,16 +33,17 @@ const floor = (over: Partial<Floor> = {}): Floor => ({
 const lightPoint = (id: string, floorId: string, x: number, y: number): Device => ({
   id,
   type: 'lightPoint',
-  placement: { floorId, at: { x, y } },
+  mount: 'ceiling',
+  placement: { floorId, at: { x, y }, rotation: 0 },
 });
 
 /** A project with floor 'f' (plan, walls, one Lichtpunt), floor 'other' (one Lichtpunt) and an unplaced Lichtpunt. */
 const project = (over: Partial<Floor> = {}): Project => ({
-  version: 2,
+  version: 3,
   id: 'p',
   name: 'Voorbeeld',
   floors: [floor(over), { id: 'other', name: 'Verdieping 1', level: 300, walls: [] }],
-  devices: [lightPoint('d1', 'f', 300, 300), lightPoint('d2', 'other', 300, 300), { id: 'd3', type: 'lightPoint' }],
+  devices: [lightPoint('d1', 'f', 300, 300), lightPoint('d2', 'other', 300, 300), { id: 'd3', type: 'lightPoint', mount: 'ceiling' }],
   createdAt: '',
   updatedAt: '',
 });
@@ -106,6 +107,7 @@ describe('calibrateFloor', () => {
     expect(w1.b.x).toBeCloseTo(1100);
     expect(w2.b.y).toBeCloseTo(850);
     expect(pr.devices[0].placement!.at.x).toBeCloseTo(600);
+    expect(pr.devices[0].placement!.rotation).toBe(0);
   });
 
   it('keeps the wall thickness', () => {
