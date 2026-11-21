@@ -56,18 +56,21 @@ export interface Placement {
 
 export type SwitchVariant = 'singlePole' | 'twoWay' | 'intermediate' | 'dimmer';
 
+/** Where a Toestel that can go either way is mounted; only wall-mounted ones snap to walls. */
+export type Mount = 'wall' | 'ceiling';
+
 /** The Gebruikstoestel a dedicated Contactdoos is for; its AREI symbol is drawn in front of the Contactdoos. */
 export type Appliance = 'washingMachine' | 'dryer' | 'dishwasher' | 'oven' | 'hob';
 
 /** What kind of Toestel it is: the glossary term plus its variant. */
 export type DeviceKind =
-  | { type: 'lightPoint'; mount: 'ceiling' | 'wall' }
+  | { type: 'lightPoint'; mount: Mount }
   | { type: 'pushButton' }
   | { type: 'switch'; variant: SwitchVariant }
   /** Always with earth and child protection; `appliance` makes it a dedicated Contactdoos. */
   | { type: 'socket'; appliance?: Appliance }
   | { type: 'dataOutlet' }
-  | { type: 'fan'; mount: 'wall' | 'ceiling' };
+  | { type: 'fan'; mount: Mount };
 
 /** A Toestel. */
 export type Device = DeviceKind & {

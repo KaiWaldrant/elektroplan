@@ -11,7 +11,7 @@ describe('DEVICE_TYPES', () => {
     }
   });
 
-  it('covers the M2 Toestellen', () => {
+  it('covers every Toestel kind', () => {
     expect(DEVICE_TYPES.map((t) => t.key)).toEqual([
       'lightPoint:ceiling',
       'lightPoint:wall',

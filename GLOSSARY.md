@@ -74,7 +74,7 @@ A fixed household appliance on its own dedicated Contactdoos: washing machine, d
 _Avoid_: toestel (alone), device, verbruiker
 
 **Datacontactdoos**:
-A Toestel to plug in a network cable (data outlet). It carries no 230 V and belongs to no Eindstroombaan.
+A Toestel to plug in a network cable (data outlet). It carries no 230 V.
 **Code**: `DataOutlet`
 _Avoid_: netwerkpunt, RJ45, data point
 
