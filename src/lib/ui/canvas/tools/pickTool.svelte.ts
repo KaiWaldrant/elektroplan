@@ -1,4 +1,5 @@
 import { calibrateFloor } from '../../../model/calibration';
+import { tidyGangs } from '../../../model/gangs';
 import type { Point } from '../../../model/types';
 import { store } from '../../../state/store.svelte';
 import { snapPointer } from './snapPointer';
@@ -57,7 +58,11 @@ export class PickTool implements CanvasTool {
   confirmDistance(realCm: number) {
     const [p1, p2] = this.picks;
     const floorId = store.floor.id;
-    if (store.floor.background && p1 && p2) store.mutate((p) => calibrateFloor(p, floorId, p1, p2, realCm));
+    if (store.floor.background && p1 && p2)
+      store.mutate((p) => {
+        calibrateFloor(p, floorId, p1, p2, realCm);
+        tidyGangs(p); // scaling moved the Toestellen apart; a Combinatie keeps its symbols side by side
+      });
     this.cancel();
     store.tool = 'select';
   }

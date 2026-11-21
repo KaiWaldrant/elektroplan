@@ -82,8 +82,27 @@ export type Device = DeviceKind & {
 /** A Toestel that is on a plan. */
 export type PlacedDevice = Device & { placement: Placement };
 
+/** How the Toestellen of a Combinatie sit on the wall: side by side, or one above the other. */
+export type Orientation = 'horizontal' | 'vertical';
+
+/**
+ * A Combinatie: wall-mounted Toestellen at one spot under one shared cover plate. A Toestel in no
+ * Combinatie is a Combinatie of one; a Gang of one is only stored when it has its own Afwerking.
+ */
+export interface Gang {
+  id: Id;
+  /**
+   * The Toestellen in order: along the wall (to the symbols' +x) when horizontal, outward from the
+   * wall when vertical. The first one fixes where the Combinatie sits.
+   */
+  deviceIds: Id[];
+  orientation: Orientation;
+  /** Afwerking of this Combinatie; absent means the project default. */
+  finish?: string;
+}
+
 /** Current version of the project data; older projects are migrated on load (see migrate.ts). */
-export const PROJECT_VERSION = 4;
+export const PROJECT_VERSION = 5;
 
 export interface Project {
   version: typeof PROJECT_VERSION;
@@ -92,6 +111,10 @@ export interface Project {
   floors: Floor[];
   /** All Toestellen of the project, placed or not. */
   devices: Device[];
+  /** The Combinaties of more than one Toestel, or with their own Afwerking. */
+  gangs: Gang[];
+  /** Default Afwerking of the project, as a name (e.g. "Niko Original zwart"); absent while not chosen. */
+  finish?: string;
   createdAt: string;
   updatedAt: string;
 }

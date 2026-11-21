@@ -6,11 +6,12 @@
   import { store } from '../state/store.svelte';
   import type { Tool } from '../state/tools';
   import NumberDialog from './NumberDialog.svelte';
-  import { kindFromKey } from '../model/deviceTypes';
+  import { isWallMounted, kindFromKey } from '../model/deviceTypes';
   import { devicesOnFloor, placeDevice, positionAt, selectedDevice } from '../model/devices';
+  import { gangMembers, joinGang, joinTargetAt } from '../model/gangs';
   import BackgroundLayer from './canvas/BackgroundLayer.svelte';
   import DevicesLayer from './canvas/DevicesLayer.svelte';
-  import { DEVICE_DRAG_TYPE } from './canvas/deviceDrag';
+  import { DEVICE_DRAG_TYPE, WALL_DEVICE_DRAG_TYPE } from './canvas/deviceDrag';
   import Overlay from './canvas/Overlay.svelte';
   import WallsLayer from './canvas/WallsLayer.svelte';
   import { PickTool } from './canvas/tools/pickTool.svelte';
@@ -39,6 +40,10 @@
   const floor = $derived(store.floor);
   const cmPerScreenPx = $derived(1 / view.zoom);
   const floorDevices = $derived(devicesOnFloor(store.project.devices, floor.id));
+  const selected = $derived(selectedDevice(store.project.devices, floor.id, store.selection));
+  /** The Toestel a wall Toestel dragged from the palette would join if dropped now. */
+  let paletteTarget = $state<string | null>(null);
+  const joinTarget = $derived(paletteTarget ?? (active instanceof SelectTool ? active.joinTarget : null));
   /** Calibrating moves what is placed on the floor (ADR 0004); the dialog says so. */
   const calibrationNote = $derived.by(() => {
     const moving = [floor.walls.length > 0 && 'muren', floorDevices.length > 0 && 'toestellen'].filter(Boolean);
@@ -124,20 +129,34 @@
   }
 
   // ---------------------------------------------------------------- Toestellen dropped from the palette
+  /** The Toestel whose Combinatie a dropped Toestel joins: only wall Toestellen join, and not with Alt held. */
+  function dropTarget(e: DragEvent, wallMounted: boolean): string | null {
+    if (!wallMounted || e.altKey) return null;
+    return joinTargetAt(store.project, floor.id, toWorld(view, screenPoint(e)), 4 * cmPerScreenPx)?.id ?? null;
+  }
+
   function ondragover(e: DragEvent) {
     if (!e.dataTransfer?.types.includes(DEVICE_DRAG_TYPE)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
+    // the kind key can only be read on drop, but the types list says whether it is a wall Toestel
+    paletteTarget = dropTarget(e, e.dataTransfer.types.includes(WALL_DEVICE_DRAG_TYPE));
   }
 
   function ondrop(e: DragEvent) {
+    paletteTarget = null;
     const kind = kindFromKey(e.dataTransfer?.getData(DEVICE_DRAG_TYPE) ?? '');
     if (!kind) return;
     e.preventDefault();
-    const { at, rotation } = positionAt(kind, floor.walls, toWorld(view, screenPoint(e)), e.altKey);
+    const world = toWorld(view, screenPoint(e));
+    const target = dropTarget(e, isWallMounted(kind));
+    const { at, rotation } = positionAt(kind, floor.walls, world, e.altKey);
     const floorId = floor.id;
     let id = '';
-    store.mutate((p) => (id = placeDevice(p, floorId, kind, at, rotation).id));
+    store.mutate((p) => {
+      id = placeDevice(p, floorId, kind, at, rotation).id;
+      if (target) joinGang(p, id, target, world);
+    });
     store.selection = { kind: 'device', id };
   }
 
@@ -157,7 +176,15 @@
 
 <svelte:window {onkeydown} onkeyup={(e) => e.key === ' ' && (spaceDown = false)} />
 
-<div class="canvas" bind:clientWidth={widthPx} bind:clientHeight={heightPx} {ondragover} {ondrop} role="presentation">
+<div
+  class="canvas"
+  bind:clientWidth={widthPx}
+  bind:clientHeight={heightPx}
+  {ondragover}
+  {ondrop}
+  ondragleave={() => (paletteTarget = null)}
+  role="presentation"
+>
   <svg
     bind:this={svg}
     class="tool-{store.tool}"
@@ -184,7 +211,9 @@
     <WallsLayer walls={floor.walls} selected={selectedWall(floor, store.selection)} zoom={view.zoom} />
     <DevicesLayer
       devices={floorDevices}
-      selectedId={selectedDevice(store.project.devices, floor.id, store.selection)?.id}
+      selectedId={selected?.id}
+      selectedGang={selected ? gangMembers(store.project, selected.id).map((d) => d.id) : []}
+      targetGang={joinTarget ? gangMembers(store.project, joinTarget).map((d) => d.id) : []}
     />
     <Overlay tool={active} zoom={view.zoom} wallThickness={store.wallThickness} />
   </svg>

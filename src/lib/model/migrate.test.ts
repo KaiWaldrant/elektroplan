@@ -13,7 +13,7 @@ const v1 = () => ({
 
 describe('migrateProject', () => {
   it('gives a version 1 project an empty list of Toestellen and makes it current', () => {
-    expect(migrateProject(v1())).toEqual({ ...v1(), version: 4, devices: [] });
+    expect(migrateProject(v1())).toEqual({ ...v1(), version: 5, devices: [], gangs: [] });
   });
 
   it('makes the Lichtpunten of a version 2 project ceiling Lichtpunten, not turned', () => {
@@ -27,7 +27,8 @@ describe('migrateProject', () => {
     };
     expect(migrateProject(v2)).toEqual({
       ...v1(),
-      version: 4,
+      version: 5,
+      gangs: [],
       devices: [
         { id: 'd1', type: 'lightPoint', mount: 'ceiling', placement: { floorId: 'f1', at: { x: 10, y: 20 }, rotation: 0 } },
         { id: 'd2', type: 'lightPoint', mount: 'ceiling' },
@@ -40,7 +41,12 @@ describe('migrateProject', () => {
       { id: 'd1', type: 'switch', variant: 'twoWay', placement: { floorId: 'f1', at: { x: 10, y: 20 }, rotation: 90 } },
       { id: 'd2', type: 'lightPoint', mount: 'wall' },
     ];
-    expect(migrateProject({ ...v1(), version: 3, devices })).toEqual({ ...v1(), version: 4, devices });
+    expect(migrateProject({ ...v1(), version: 3, devices })).toEqual({ ...v1(), version: 5, devices, gangs: [] });
+  });
+
+  it('gives a version 4 project no Combinaties, so every Toestel is a Combinatie of one', () => {
+    const devices = [{ id: 'd1', type: 'socket', placement: { floorId: 'f1', at: { x: 10, y: 20 }, rotation: 90 } }];
+    expect(migrateProject({ ...v1(), version: 4, devices })).toEqual({ ...v1(), version: 5, devices, gangs: [] });
   });
 
   it('leaves a current project as it is', () => {
@@ -49,7 +55,7 @@ describe('migrateProject', () => {
   });
 
   it('refuses a project from a newer version of the app', () => {
-    expect(() => migrateProject({ ...v1(), version: 5 })).toThrow('nieuwere versie');
+    expect(() => migrateProject({ ...v1(), version: 6 })).toThrow('nieuwere versie');
   });
 
   it('refuses something that is not a project', () => {
@@ -59,9 +65,10 @@ describe('migrateProject', () => {
 });
 
 describe('createProject', () => {
-  it('starts at the current version without Toestellen', () => {
+  it('starts at the current version without Toestellen or Combinaties', () => {
     const p = createProject();
-    expect(p.version).toBe(4);
+    expect(p.version).toBe(5);
     expect(p.devices).toEqual([]);
+    expect(p.gangs).toEqual([]);
   });
 });

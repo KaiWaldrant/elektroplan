@@ -1,11 +1,5 @@
-import {
-  findDevice,
-  hitDevice,
-  moveDevice,
-  positionAt,
-  rotateDevice,
-  selectedDevice,
-} from '../../../model/devices';
+import { findDevice, hitDevice, positionAt, selectedDevice } from '../../../model/devices';
+import { gangMembers, joinGang, joinTargetAt, moveGang, rotateGang } from '../../../model/gangs';
 import { dist, hitWall } from '../../../model/geometry';
 import { connectedEnds, moveEnds, selectedWall, translateWall } from '../../../model/walls';
 import type { Id, Point, Wall, WallEnd } from '../../../model/types';
@@ -28,8 +22,11 @@ type Drag =
   | (DragBase & { kind: 'end'; ends: WallEnd[] })
   /** Dragging a whole wall. */
   | (OffsetDrag & { kind: 'wall'; wallId: Id; wallsAtStart: Wall[] })
-  /** Dragging a Toestel. */
-  | (OffsetDrag & { kind: 'device'; deviceId: Id; atStart: Point });
+  /**
+   * Dragging a Toestel, with the rest of its Combinatie. A lone one (`alone`) joins the Combinatie
+   * it is dropped on; `last` is where the pointer was last.
+   */
+  | (OffsetDrag & { kind: 'device'; deviceId: Id; atStart: Point; alone: boolean; last: Point });
 
 /** Extra screen px around a wall that still counts as a click on it. */
 const HIT_PX = 4;
@@ -39,9 +36,11 @@ const DRAG_START_PX = 3;
 /** Selects Toestellen and walls and drags them (or a selected wall's ends); a press on empty canvas pans. */
 export class SelectTool implements CanvasTool {
   private drag: Drag | null = null;
+  /** The Toestel whose Combinatie the dragged Toestel joins when it is dropped now. */
+  joinTarget = $state<Id | null>(null);
 
   readonly hint =
-    'Klik een muur of toestel om te selecteren; sleep om te verplaatsen; R draait een toestel. Sleep de achtergrond of gebruik het muiswiel om te pannen/zoomen.';
+    'Klik een muur of toestel om te selecteren; sleep om te verplaatsen (een los toestel op een ander vormt een combinatie); R draait een toestel. Sleep de achtergrond of gebruik het muiswiel om te pannen/zoomen.';
   readonly snapMark = null;
 
   pointerDown(p: CanvasPointer): PressResult {
@@ -63,6 +62,8 @@ export class SelectTool implements CanvasTool {
         deviceId: device.id,
         pointerStart: p.world,
         atStart: { ...device.placement.at },
+        alone: gangMembers(store.project, device.id).length === 1,
+        last: p.world,
         moved: false,
       };
       return 'capture';
@@ -99,25 +100,33 @@ export class SelectTool implements CanvasTool {
       if (!off || !device) return;
       const target = { x: d.atStart.x + off.x, y: d.atStart.y + off.y };
       const { at, rotation } = positionAt(device, store.floor.walls, target, p.free);
-      store.apply((pr) => moveDevice(pr.devices, d.deviceId, at, rotation));
+      store.apply((pr) => moveGang(pr, d.deviceId, at, rotation));
+      d.last = p.world;
+      const join = d.alone && !p.free && joinTargetAt(store.project, store.floor.id, p.world, HIT_PX * p.cmPerScreenPx, d.deviceId);
+      this.joinTarget = join ? join.id : null;
     }
   }
 
   pointerUp() {
+    const d = this.drag;
+    const target = this.joinTarget;
+    if (d?.kind === 'device' && d.moved && target) store.apply((pr) => joinGang(pr, d.deviceId, target, d.last));
     this.drag = null;
+    this.joinTarget = null;
   }
 
   keyDown(e: KeyboardEvent): boolean {
     if (e.key.toLowerCase() !== 'r' || e.ctrlKey || e.metaKey || e.altKey) return false;
     const device = selectedDevice(store.project.devices, store.floor.id, store.selection);
     if (!device) return false;
-    store.mutate((pr) => rotateDevice(pr.devices, device.id));
+    store.mutate((pr) => rotateGang(pr, device.id));
     e.preventDefault();
     return true;
   }
 
   cancel() {
     this.drag = null;
+    this.joinTarget = null;
   }
 
   /**

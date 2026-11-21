@@ -5,15 +5,19 @@
   import { findWall, selectedWall, setWallLength } from '../model/walls';
   import { store } from '../state/store.svelte';
   import NumberDialog from './NumberDialog.svelte';
-  import { DEVICE_DRAG_TYPE } from './canvas/deviceDrag';
+  import { DEVICE_DRAG_TYPE, WALL_DEVICE_DRAG_TYPE } from './canvas/deviceDrag';
   import DeviceSymbol from './symbols/DeviceSymbol.svelte';
-  import { DEVICE_TYPES, deviceLabel, kindFromKey, kindKey, variantsOf } from '../model/deviceTypes';
+  import { DEVICE_TYPES, deviceLabel, isWallMounted, kindFromKey, kindKey, variantsOf } from '../model/deviceTypes';
   import { setDeviceKind } from '../model/devices';
+  import { gangMembers, gangOf, leaveGang, setGangFinish, setGangOrientation, tidyGangs } from '../model/gangs';
+  import type { Orientation } from '../model/types';
 
   const floor = $derived(store.floor);
   const bg = $derived(floor.background);
   const wall = $derived(selectedWall(floor, store.selection));
   const device = $derived(selectedDevice(store.project.devices, floor.id, store.selection));
+  const gang = $derived(device ? gangOf(store.project, device.id) : undefined);
+  const gangSize = $derived(device ? gangMembers(store.project, device.id).length : 0);
   let lengthDialog = $state(false);
 
   function confirmWallLength(len: number) {
@@ -28,6 +32,25 @@
 </script>
 
 <aside class="side">
+  <section>
+    <h3>Project</h3>
+    <label>
+      Afwerking
+      <input
+        value={store.project.finish ?? ''}
+        placeholder="bv. Niko Original wit"
+        onchange={(e) => {
+          const v = (e.target as HTMLInputElement).value.trim() || undefined;
+          if (v !== store.project.finish)
+            store.mutate((p) => {
+              if (v) p.finish = v;
+              else delete p.finish;
+            });
+        }}
+      />
+    </label>
+  </section>
+
   <section>
     <h3>Verdiepingen</h3>
     <ul class="floors">
@@ -89,15 +112,63 @@
             onchange={(e) => {
               const kind = kindFromKey((e.target as HTMLSelectElement).value);
               const id = device?.id;
-              if (kind && id) store.mutate((p) => setDeviceKind(p.devices, floor.walls, id, kind));
+              if (kind && id)
+                store.mutate((p) => {
+                  setDeviceKind(p.devices, floor.walls, id, kind);
+                  tidyGangs(p);
+                });
             }}
           >
             {#each variants as v (v.key)}<option value={v.key}>{v.label}</option>{/each}
           </select>
         </label>
       {/if}
-      <p class="muted">R draait het toestel een kwartslag.</p>
+      <p class="muted">R draait het toestel{gangSize > 1 ? ' met zijn combinatie' : ''} een kwartslag.</p>
       <button class="danger" onclick={() => store.removeSelection()}>Toestel verwijderen <kbd>Del</kbd></button>
+      {#if isWallMounted(device)}
+        <h4>Combinatie</h4>
+        {#if gangSize > 1}
+          <p>{gangSize} toestellen onder één afdekplaat.</p>
+          <div class="row" role="radiogroup" aria-label="Richting">
+            {#each [['horizontal', 'Horizontaal'], ['vertical', 'Verticaal']] as const as [o, label] (o)}
+              <label class="inline">
+                <input
+                  type="radio"
+                  name="orientation"
+                  checked={gang?.orientation === o}
+                  onchange={() => {
+                    const id = device?.id;
+                    if (id) store.mutate((p) => setGangOrientation(p, id, o as Orientation));
+                  }}
+                />
+                {label}
+              </label>
+            {/each}
+          </div>
+          <button
+            onclick={() => {
+              const id = device?.id;
+              if (id) store.mutate((p) => leaveGang(p, id));
+            }}
+          >
+            Uit combinatie halen
+          </button>
+        {:else}
+          <p class="muted">Sleep een ander wandtoestel op dit toestel om een combinatie te maken.</p>
+        {/if}
+        <label>
+          Afwerking
+          <input
+            value={gang?.finish ?? ''}
+            placeholder={store.project.finish ? `${store.project.finish} (project)` : 'Projectafwerking'}
+            onchange={(e) => {
+              const id = device?.id;
+              const v = (e.target as HTMLInputElement).value;
+              if (id && (v.trim() || undefined) !== gang?.finish) store.mutate((p) => setGangFinish(p, id, v));
+            }}
+          />
+        </label>
+      {/if}
     {/if}
     <p class="muted">Sleep een toestel op het plan; aan een muur klikt het vast (Alt = los).</p>
     <div class="palette">
@@ -110,6 +181,7 @@
           title={t.label}
           ondragstart={(e) => {
             e.dataTransfer?.setData(DEVICE_DRAG_TYPE, t.key);
+            if (isWallMounted(t.kind)) e.dataTransfer?.setData(WALL_DEVICE_DRAG_TYPE, '1');
             if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
           }}
         >
@@ -207,6 +279,10 @@
 {/if}
 
 <style>
+  label.inline {
+    flex-direction: row;
+    align-items: center;
+  }
   .palette-item {
     display: inline-flex;
     align-items: center;
