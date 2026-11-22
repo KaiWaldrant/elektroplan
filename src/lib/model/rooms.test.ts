@@ -209,6 +209,14 @@ describe('editing the outline', () => {
     expect(findRoom(p.floors[0], 'store')!.polygon[2]).toEqual({ x: 650, y: 120 });
   });
 
+  it('refuses a corner move that makes the outline cross itself', () => {
+    const p = house();
+    const before = structuredClone(findRoom(p.floors[0], 'store')!.polygon);
+    expect(moveRoomCorner(p.floors[0], 'store', 2, { x: 300, y: 50 })).toBe(false);
+    expect(findRoom(p.floors[0], 'store')!.polygon).toEqual(before);
+    expect(moveRoomCorner(p.floors[0], 'store', 2, { x: 650, y: 120 })).toBe(true);
+  });
+
   it('moves the whole Ruimte from where it was when the drag began', () => {
     const p = house();
     const start = structuredClone(findRoom(p.floors[0], 'store')!.polygon);

@@ -1,4 +1,4 @@
-import { dist } from '../../../model/geometry';
+import { dist, isSimplePolygon } from '../../../model/geometry';
 import { addRoom } from '../../../model/rooms';
 import type { Point } from '../../../model/types';
 import { store } from '../../../state/store.svelte';
@@ -19,10 +19,13 @@ export class RoomTool implements CanvasTool {
   snapMark = $state<Point | null>(null);
   /** The pointer is on the first corner, so a click closes the Ruimte. */
   closing = $state(false);
+  /** The last try to close was refused because the outline crosses itself. */
+  crossing = $state(false);
   /** Where and when the last Ruimte was closed by a click, so the rest of a double-click there is ignored. */
   private closedAt: { point: Point; time: number } | null = null;
 
   get hint(): string {
+    if (this.crossing) return 'De omtrek kruist zichzelf. Backspace = laatste hoek weg, Esc = stoppen.';
     if (this.corners.length === 0) return 'Ruimte: klik de eerste hoek (muurhoeken trekken aan).';
     if (this.corners.length < 3) return 'Klik de volgende hoek. Backspace = laatste hoek weg, Esc = stoppen. Alt = niet snappen.';
     return 'Klik de volgende hoek, of klik de eerste hoek, dubbelklik of Enter om de ruimte te sluiten.';
@@ -41,7 +44,10 @@ export class RoomTool implements CanvasTool {
       return null;
     const s = this.snap(p);
     const last = this.corners.at(-1);
-    if (!last || dist(last, s) > sameSpot) this.corners = [...this.corners, s];
+    if (!last || dist(last, s) > sameSpot) {
+      this.corners = [...this.corners, s];
+      this.crossing = false;
+    }
     return null;
   }
 
@@ -57,6 +63,7 @@ export class RoomTool implements CanvasTool {
       this.close();
     } else if (e.key === 'Backspace') {
       this.corners = this.corners.slice(0, -1);
+      this.crossing = false;
       if (this.corners.length === 0) this.preview = null;
     } else return false;
     e.preventDefault();
@@ -73,15 +80,20 @@ export class RoomTool implements CanvasTool {
     this.preview = null;
     this.snapMark = null;
     this.closing = false;
+    this.crossing = false;
   }
 
   private onFirstCorner(p: CanvasPointer): boolean {
     return this.corners.length >= 3 && dist(this.corners[0], p.world) <= p.snapTolerance;
   }
 
-  /** Add the Ruimte (at least three corners) and select it, so it can be named. */
+  /** Add the Ruimte (at least three corners) and select it, so it can be named. An outline that crosses itself stays open. */
   private close() {
     const corners = this.corners;
+    if (corners.length >= 3 && !isSimplePolygon(corners)) {
+      this.crossing = true;
+      return;
+    }
     this.cancel();
     if (corners.length < 3) return;
     let id = '';

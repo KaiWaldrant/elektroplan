@@ -139,3 +139,48 @@ export function polygonArea(polygon: Point[]): number {
   }
   return Math.abs(twice) / 2;
 }
+
+/** Sign of the turn a → b → c: > 0 one way, < 0 the other, 0 when the three lie on one line. */
+const orient = (a: Point, b: Point, c: Point): number => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+
+/** Whether `p`, already on the line through a-b, lies within the segment's box. */
+const withinBox = (p: Point, a: Point, b: Point): boolean =>
+  Math.min(a.x, b.x) <= p.x && p.x <= Math.max(a.x, b.x) && Math.min(a.y, b.y) <= p.y && p.y <= Math.max(a.y, b.y);
+
+/** Whether segments a-b and c-d share any point (crossing, touching or overlapping). */
+export function segmentsIntersect(a: Point, b: Point, c: Point, d: Point): boolean {
+  const o1 = orient(a, b, c);
+  const o2 = orient(a, b, d);
+  const o3 = orient(c, d, a);
+  const o4 = orient(c, d, b);
+  if (((o1 > 0 && o2 < 0) || (o1 < 0 && o2 > 0)) && ((o3 > 0 && o4 < 0) || (o3 < 0 && o4 > 0))) return true;
+  return (
+    (o1 === 0 && withinBox(c, a, b)) ||
+    (o2 === 0 && withinBox(d, a, b)) ||
+    (o3 === 0 && withinBox(a, c, d)) ||
+    (o4 === 0 && withinBox(b, c, d))
+  );
+}
+
+/**
+ * Whether the closed outline does not cross or touch itself: edges meet only at their shared corner.
+ * Needed for `pointInPolygon` (even-odd rule) to mean "inside the room".
+ */
+export function isSimplePolygon(polygon: Point[]): boolean {
+  const n = polygon.length;
+  if (n < 3) return false;
+  const edge = (i: number): [Point, Point] => [polygon[i], polygon[(i + 1) % n]];
+  for (let i = 0; i < n; i++) {
+    const [a, b] = edge(i);
+    if (samePoint(a, b, 0)) return false;
+    // The next edge shares corner b; it must not run back along this one.
+    const c = polygon[(i + 2) % n];
+    if (orient(a, b, c) === 0 && (b.x - a.x) * (c.x - b.x) + (b.y - a.y) * (c.y - b.y) < 0) return false;
+    for (let j = i + 2; j < n; j++) {
+      if (i === 0 && j === n - 1) continue; // the last edge shares corner 0 with the first
+      const [c2, d2] = edge(j);
+      if (segmentsIntersect(a, b, c2, d2)) return false;
+    }
+  }
+  return true;
+}

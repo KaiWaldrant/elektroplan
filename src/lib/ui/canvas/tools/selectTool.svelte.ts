@@ -113,6 +113,7 @@ export class SelectTool implements CanvasTool {
     } else if (d?.kind === 'corner') {
       this.startMoving(d);
       const s = snapPointer(p);
+      // A move that would make the outline cross itself is refused, so the corner stays at its last valid spot.
       store.applyFloor((f) => moveRoomCorner(f, d.roomId, d.index, s.point));
     } else if (d?.kind === 'room') {
       const off = this.offset(d, p);
