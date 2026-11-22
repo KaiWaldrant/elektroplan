@@ -100,6 +100,9 @@ export function bounds(points: Point[]): { min: Point; max: Point } | null {
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
+/** A point rounded to whole cm. */
+export const roundPoint = (p: Point): Point => ({ x: Math.round(p.x), y: Math.round(p.y) });
+
 /** Size of the plan background in world cm. */
 export function backgroundExtent(bg: Background): { width: number; height: number } {
   return { width: bg.widthPx * bg.cmPerPx, height: bg.heightPx * bg.cmPerPx };
@@ -115,4 +118,24 @@ export function wallNormal(w: Wall): Point {
 export function backgroundCorners(bg: Background): [Point, Point] {
   const { width, height } = backgroundExtent(bg);
   return [{ ...bg.offset }, { x: bg.offset.x + width, y: bg.offset.y + height }];
+}
+
+/** Whether `p` lies inside the polygon (even-odd rule; a point exactly on an edge may go either way). */
+export function pointInPolygon(p: Point, polygon: Point[]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[i];
+    const b = polygon[j];
+    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+/** Area of a polygon in cm², whatever the drawing direction (shoelace formula). */
+export function polygonArea(polygon: Point[]): number {
+  let twice = 0;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    twice += (polygon[j].x + polygon[i].x) * (polygon[j].y - polygon[i].y);
+  }
+  return Math.abs(twice) / 2;
 }

@@ -27,6 +27,7 @@ const floor = (over: Partial<Floor> = {}): Floor => ({
   level: 0,
   background: bg({ cmPerPx: 0.8, offset: { x: -50, y: 20 } }),
   walls: [wall('w1', 100, 100, 500, 100), wall('w2', 500, 100, 500, 400)],
+  rooms: [{ id: 'r1', name: 'Keuken', polygon: [{ x: 100, y: 100 }, { x: 500, y: 100 }, { x: 500, y: 400 }] }],
   ...over,
 });
 
@@ -42,7 +43,7 @@ const project = (over: Partial<Floor> = {}): Project => ({
   version: PROJECT_VERSION,
   id: 'p',
   name: 'Voorbeeld',
-  floors: [floor(over), { id: 'other', name: 'Verdieping 1', level: 300, walls: [] }],
+  floors: [floor(over), { id: 'other', name: 'Verdieping 1', level: 300, walls: [], rooms: [] }],
   devices: [lightPoint('d1', 'f', 300, 300), lightPoint('d2', 'other', 300, 300), { id: 'd3', type: 'lightPoint', mount: 'ceiling' }],
   gangs: [],
   createdAt: '',
@@ -86,10 +87,10 @@ describe('calibrateFloor', () => {
     expect(pr.floors[0].background).toEqual(expected);
   });
 
-  it('keeps every wall end and Toestel on the same spot of the plan', () => {
+  it('keeps every wall end, Ruimte corner and Toestel on the same spot of the plan', () => {
     const pr = project();
     const f = pr.floors[0];
-    const points = () => [...f.walls.flatMap((w) => [w.a, w.b]), pr.devices[0].placement!.at];
+    const points = () => [...f.walls.flatMap((w) => [w.a, w.b]), ...f.rooms[0].polygon, pr.devices[0].placement!.at];
     const before = points().map((p) => onPlan(f.background!, p));
     calibrateFloor(pr, 'f', p1, p2, 500);
     const after = points().map((p) => onPlan(f.background!, p));

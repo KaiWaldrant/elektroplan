@@ -12,7 +12,7 @@ describe('createProject', () => {
 describe('blobKeys', () => {
   it('lists the plan image of every floor that has one', () => {
     const p = createProject();
-    p.floors.push({ id: 'f2', name: 'Verdieping 1', level: 300, walls: [] });
+    p.floors.push({ id: 'f2', name: 'Verdieping 1', level: 300, walls: [], rooms: [] });
     p.floors[1].background = {
       blobKey: 'b2', name: 'plan.png', widthPx: 10, heightPx: 10, cmPerPx: 1,
       offset: { x: 0, y: 0 }, opacity: 0.5, calibrated: false,

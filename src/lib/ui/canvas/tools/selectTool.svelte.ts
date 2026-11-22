@@ -2,6 +2,7 @@ import { isWallMounted } from '../../../model/deviceTypes';
 import { findDevice, hitDevice, positionAt, selectedDevice } from '../../../model/devices';
 import { gangMembers, joinGang, joinTargetAt, moveGang, rotateGang } from '../../../model/gangs';
 import { dist, hitWall } from '../../../model/geometry';
+import { moveRoomCorner, roomAt, selectedRoom, translateRoom } from '../../../model/rooms';
 import { connectedEnds, moveEnds, selectedWall, translateWall } from '../../../model/walls';
 import type { Id, Point, Wall, WallEnd } from '../../../model/types';
 import { store } from '../../../state/store.svelte';
@@ -21,6 +22,10 @@ interface OffsetDrag extends DragBase {
 type Drag =
   /** Dragging a selected wall's end, together with the wall ends joined to it. */
   | (DragBase & { kind: 'end'; ends: WallEnd[] })
+  /** Dragging one corner of the selected Ruimte. */
+  | (DragBase & { kind: 'corner'; roomId: Id; index: number })
+  /** Dragging a whole Ruimte. */
+  | (OffsetDrag & { kind: 'room'; roomId: Id; polygonAtStart: Point[] })
   /** Dragging a whole wall. */
   | (OffsetDrag & { kind: 'wall'; wallId: Id; wallsAtStart: Wall[] })
   /**
@@ -36,18 +41,29 @@ const HIT_PX = 4;
 /** Screen px a wall or Toestel must be dragged before it moves (so a click doesn't nudge it). */
 const DRAG_START_PX = 3;
 
-/** Selects Toestellen and walls and drags them (or a selected wall's ends); a press on empty canvas pans. */
+/**
+ * Selects Toestellen, walls and Ruimtes and drags them (or a selected wall's ends or Ruimte's
+ * corners); a press on empty canvas pans. A Ruimte is only hit where no Toestel or wall is.
+ */
 export class SelectTool implements CanvasTool {
   private drag: Drag | null = null;
   /** The Toestel whose Combinatie the dragged Toestel joins when it is dropped now. */
   joinTarget = $state<Id | null>(null);
 
   readonly hint =
-    'Klik een muur of toestel om te selecteren; sleep om te verplaatsen (een los toestel op een ander vormt een combinatie); R draait een toestel. Sleep de achtergrond of gebruik het muiswiel om te pannen/zoomen.';
+    'Klik een muur, toestel of ruimte om te selecteren; sleep om te verplaatsen (een ruimte pas als ze geselecteerd is; een los toestel op een ander vormt een combinatie); R draait een toestel. Sleep de achtergrond of gebruik het muiswiel om te pannen/zoomen.';
   readonly snapMark = null;
 
   pointerDown(p: CanvasPointer): PressResult {
     const walls = store.floor.walls;
+    const room = selectedRoom(store.floor, store.selection);
+    if (room) {
+      const index = room.polygon.findIndex((c) => dist(c, p.world) <= p.snapTolerance);
+      if (index >= 0) {
+        this.drag = { kind: 'corner', roomId: room.id, index, moved: false };
+        return 'capture';
+      }
+    }
     const selected = selectedWall(store.floor, store.selection);
     if (selected) {
       for (const end of ['a', 'b'] as const) {
@@ -75,10 +91,7 @@ export class SelectTool implements CanvasTool {
       return 'capture';
     }
     const i = hitWall(walls, p.world, HIT_PX * p.cmPerScreenPx);
-    if (i < 0) {
-      store.selection = null;
-      return 'pan';
-    }
+    if (i < 0) return this.pressRoom(p);
     const wall = walls[i];
     store.selection = { kind: 'wall', id: wall.id };
     this.drag = {
@@ -97,6 +110,13 @@ export class SelectTool implements CanvasTool {
       this.startMoving(d);
       const s = snapPointer(p, { exclude: d.ends });
       store.applyFloor((f) => moveEnds(f.walls, d.ends, s.point));
+    } else if (d?.kind === 'corner') {
+      this.startMoving(d);
+      const s = snapPointer(p);
+      store.applyFloor((f) => moveRoomCorner(f, d.roomId, d.index, s.point));
+    } else if (d?.kind === 'room') {
+      const off = this.offset(d, p);
+      if (off) store.applyFloor((f) => translateRoom(f, d.roomId, d.polygonAtStart, off.x, off.y));
     } else if (d?.kind === 'wall') {
       const off = this.offset(d, p);
       if (off) store.applyFloor((f) => translateWall(f.walls, d.wallsAtStart, d.wallId, Math.round(off.x), Math.round(off.y)));
@@ -133,6 +153,21 @@ export class SelectTool implements CanvasTool {
   cancel() {
     this.drag = null;
     this.joinTarget = null;
+  }
+
+  /**
+   * A press on no Toestel or wall: an already selected Ruimte there is dragged; otherwise the Ruimte
+   * there (if any) is selected and the press pans, so Ruimtes covering the plan don't block panning.
+   */
+  private pressRoom(p: CanvasPointer): PressResult {
+    const room = roomAt(store.floor, p.world);
+    if (!room || selectedRoom(store.floor, store.selection)?.id !== room.id) {
+      store.selection = room ? { kind: 'room', id: room.id } : null;
+      return 'pan';
+    }
+    const polygonAtStart = $state.snapshot(room.polygon) as Point[];
+    this.drag = { kind: 'room', roomId: room.id, pointerStart: p.world, polygonAtStart, moved: false };
+    return 'capture';
   }
 
   /**

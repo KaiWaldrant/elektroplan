@@ -15,6 +15,7 @@
   --wall-edge: #2c3136;
   --dim: #3b4652;
   --snap: #e8590c;
+  --room: #2b8a3e;
   font-family: var(--font);
   font-size: 14px;
   color: var(--text);
@@ -61,9 +62,9 @@ label { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; }
 }
 .side section { border-bottom: 1px solid var(--border); padding: 8px 0 12px; }
 .side h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 6px 0; }
-.floors { list-style: none; padding: 0; margin: 0 0 8px; }
-.floors li { display: flex; justify-content: space-between; padding: 4px 6px; border-radius: 6px; }
-.floors li.active { background: #e8f0fc; }
+.floors, .rooms { list-style: none; padding: 0; margin: 0 0 8px; }
+.floors li, .rooms li { display: flex; justify-content: space-between; padding: 4px 6px; border-radius: 6px; }
+.floors li.active, .rooms li.active { background: #e8f0fc; }
 .canvas { grid-area: canvas; }
 .status {
   grid-area: status; display: flex; gap: 20px; padding: 4px 12px; font-size: 12px;

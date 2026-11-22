@@ -1,4 +1,4 @@
-import { nearestPoint, projectOnSegment, snapAngle } from '../../model/geometry';
+import { nearestPoint, projectOnSegment, roundPoint, snapAngle } from '../../model/geometry';
 import { includesEnd } from '../../model/walls';
 import type { Point, Wall, WallEnd } from '../../model/types';
 
@@ -25,7 +25,6 @@ export interface Snap {
   mark: Point | null;
 }
 
-const round = (p: Point): Point => ({ x: Math.round(p.x), y: Math.round(p.y) });
 
 /**
  * Snap `p` in this order: to a nearby wall end, else (unless `free`) the direction from `from`
@@ -39,16 +38,16 @@ export function snapPoint(walls: Wall[], p: Point, { tolerance, from = null, exc
   }
   const end = nearestPoint(ends, p, tolerance);
   if (end) return { point: { ...end }, mark: { ...end } };
-  if (free) return { point: round(p), mark: null };
+  if (free) return { point: roundPoint(p), mark: null };
 
   const q = from ? snapAngle(from, p, ANGLE_STEP_DEG) : p;
   for (const w of walls) {
     if (exclude.some((e) => e.wallId === w.id)) continue;
     const onWall = projectOnSegment(q, w.a, w.b);
     if (onWall.dist < tolerance) {
-      const point = round(onWall.point);
+      const point = roundPoint(onWall.point);
       return { point, mark: { ...point } };
     }
   }
-  return { point: round(q), mark: null };
+  return { point: roundPoint(q), mark: null };
 }

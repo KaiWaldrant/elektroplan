@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   atLength,
+  pointInPolygon,
+  polygonArea,
   backgroundCorners,
   backgroundExtent,
   dist,
@@ -113,5 +115,57 @@ describe('wallNormal', () => {
     const n2 = wallNormal({ id: 'w', a: { x: 0, y: 0 }, b: { x: 0, y: 50 }, thickness: 10 });
     expect(n2.x).toBeCloseTo(-1);
     expect(n2.y).toBeCloseTo(0);
+  });
+});
+
+describe('pointInPolygon', () => {
+  const square = [
+    { x: 0, y: 0 },
+    { x: 100, y: 0 },
+    { x: 100, y: 100 },
+    { x: 0, y: 100 },
+  ];
+  // an L-shaped room: the square without its top-right quarter
+  const ell = [
+    { x: 0, y: 0 },
+    { x: 50, y: 0 },
+    { x: 50, y: 50 },
+    { x: 100, y: 50 },
+    { x: 100, y: 100 },
+    { x: 0, y: 100 },
+  ];
+
+  it('is true inside and false outside', () => {
+    expect(pointInPolygon({ x: 50, y: 50 }, square)).toBe(true);
+    expect(pointInPolygon({ x: 150, y: 50 }, square)).toBe(false);
+    expect(pointInPolygon({ x: 50, y: -1 }, square)).toBe(false);
+  });
+
+  it('follows a concave outline', () => {
+    expect(pointInPolygon({ x: 25, y: 25 }, ell)).toBe(true);
+    expect(pointInPolygon({ x: 75, y: 25 }, ell)).toBe(false);
+    expect(pointInPolygon({ x: 75, y: 75 }, ell)).toBe(true);
+  });
+
+  it('does not depend on the drawing direction', () => {
+    expect(pointInPolygon({ x: 25, y: 75 }, [...ell].reverse())).toBe(true);
+    expect(pointInPolygon({ x: 75, y: 25 }, [...ell].reverse())).toBe(false);
+  });
+
+  it('is false for fewer than three corners', () => {
+    expect(pointInPolygon({ x: 0, y: 0 }, square.slice(0, 2))).toBe(false);
+  });
+});
+
+describe('polygonArea', () => {
+  it('is the area in cm², whatever the drawing direction', () => {
+    const rect = [
+      { x: 0, y: 0 },
+      { x: 400, y: 0 },
+      { x: 400, y: 300 },
+      { x: 0, y: 300 },
+    ];
+    expect(polygonArea(rect)).toBe(120000);
+    expect(polygonArea([...rect].reverse())).toBe(120000);
   });
 });
