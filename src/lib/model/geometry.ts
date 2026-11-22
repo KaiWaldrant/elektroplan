@@ -1,5 +1,5 @@
 import { formatDecimal } from './numbers';
-import type { Background, Point, Wall } from './types';
+import type { Background, Id, Point, Wall, WallEnd } from './types';
 
 export const dist = (a: Point, b: Point): number => Math.hypot(b.x - a.x, b.y - a.y);
 
@@ -77,6 +77,108 @@ export function wallPolygon(w: Wall): Point[] {
     { x: w.b.x - nx, y: w.b.y - ny },
     { x: w.a.x - nx, y: w.a.y - ny },
   ];
+}
+
+/** How far a mitre may reach past the thicker wall's face, in thicknesses of the thinner wall; further becomes a bevel. */
+const MITRE_REACH = 1.5;
+/** Angles and cross products below this count as zero. */
+const EPSILON = 1e-9;
+
+/** One wall end at a corner, seen from the corner. */
+interface CornerEnd {
+  wall: Wall;
+  end: WallEnd['end'];
+  /** Unit direction from the corner along the wall. */
+  along: Point;
+  angle: number;
+}
+
+/**
+ * The outline of every wall as drawn on the plan, by wall id. Walls whose ends share a point
+ * are mitred there, so joined walls meet in a clean corner. Each polygon runs from the a end
+ * to the b end, starting on the a−n side (n = `wallNormal`).
+ */
+export function wallShapes(walls: Wall[]): Map<Id, Point[]> {
+  const ends: CornerEnd[] = [];
+  for (const w of walls) {
+    if (dist(w.a, w.b) === 0) continue;
+    for (const end of ['a', 'b'] as const) {
+      const from = w[end];
+      const to = end === 'a' ? w.b : w.a;
+      const len = dist(from, to);
+      const along = { x: (to.x - from.x) / len, y: (to.y - from.y) / len };
+      ends.push({ wall: w, end, along, angle: Math.atan2(along.y, along.x) });
+    }
+  }
+
+  // Each end belongs to one corner only: the first one that reaches it.
+  const caps = new Map<CornerEnd, Point[]>();
+  for (const e of ends) {
+    if (caps.has(e)) continue;
+    const corner = e.wall[e.end];
+    const meeting = ends.filter((o) => !caps.has(o) && samePoint(o.wall[o.end], corner));
+    cornerCaps(meeting, corner).forEach((cap, i) => caps.set(meeting[i], cap));
+  }
+
+  // Walls of zero length have no ends above and keep their plain rectangle.
+  const shapes = new Map<Id, Point[]>();
+  for (const w of walls) {
+    const [p0, p1, p2, p3] = wallPolygon(w);
+    shapes.set(w.id, [p3, p0, p1, p2]);
+  }
+  for (let i = 0; i < ends.length; i += 2) shapes.set(ends[i].wall.id, [...caps.get(ends[i])!, ...caps.get(ends[i + 1])!]);
+  return shapes;
+}
+
+/**
+ * The end outline of each wall end in `meeting`, all lying at `corner`, in the same order.
+ * A cap runs from the wall's right face to its left face (left = its direction turned a
+ * quarter towards the next wall around the corner).
+ */
+function cornerCaps(meeting: CornerEnd[], corner: Point): Point[][] {
+  const face = (e: CornerEnd, side: 'left' | 'right'): Point => {
+    const half = ((side === 'left' ? 1 : -1) * e.wall.thickness) / 2;
+    return { x: corner.x - e.along.y * half, y: corner.y + e.along.x * half };
+  };
+  if (meeting.length === 1) return [[face(meeting[0], 'right'), face(meeting[0], 'left')]];
+
+  const order = meeting.map((_, i) => i).sort((i, j) => meeting[i].angle - meeting[j].angle);
+  const rightPart: Point[][] = [];
+  const leftPart: Point[][] = [];
+  order.forEach((i, k) => {
+    const e = meeting[i];
+    const nextIndex = order[(k + 1) % order.length];
+    const next = meeting[nextIndex];
+    let turn = next.angle - e.angle;
+    if (turn <= 0) turn += 2 * Math.PI;
+    const mitre = intersectLines(face(e, 'left'), e.along, face(next, 'right'), next.along);
+    if (mitre && mitreFits(mitre, corner, e, next)) {
+      leftPart[i] = [mitre];
+      rightPart[nextIndex] = [mitre];
+    } else {
+      // Bevel: on the outside of the join, close the gap between the two faces.
+      leftPart[i] = turn > Math.PI + EPSILON ? [face(next, 'right'), face(e, 'left')] : [face(e, 'left')];
+      rightPart[nextIndex] = [face(next, 'right')];
+    }
+  });
+  return meeting.map((_, i) => [...rightPart[i], corner, ...leftPart[i]]);
+}
+
+/** A mitre fits when it does not spike far past the walls and stays within both walls' length. */
+function mitreFits(mitre: Point, corner: Point, e: CornerEnd, next: CornerEnd): boolean {
+  const thick = Math.max(e.wall.thickness, next.wall.thickness);
+  const thin = Math.min(e.wall.thickness, next.wall.thickness);
+  if (dist(mitre, corner) > thick / 2 + MITRE_REACH * thin) return false;
+  const reach = (o: CornerEnd) => (mitre.x - corner.x) * o.along.x + (mitre.y - corner.y) * o.along.y;
+  return reach(e) <= dist(e.wall.a, e.wall.b) && reach(next) <= dist(next.wall.a, next.wall.b);
+}
+
+/** Intersection of the lines p + s·u and q + t·v, or null when they are parallel. */
+function intersectLines(p: Point, u: Point, q: Point, v: Point): Point | null {
+  const cross = u.x * v.y - u.y * v.x;
+  if (Math.abs(cross) < EPSILON) return null;
+  const s = ((q.x - p.x) * v.y - (q.y - p.y) * v.x) / cross;
+  return { x: p.x + s * u.x, y: p.y + s * u.y };
 }
 
 /** Keep `a`, move `b` so the wall gets the given length. */

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { dist, formatLength, wallNormal, wallPolygon } from '../../model/geometry';
+  import { dist, formatLength, wallNormal, wallShapes } from '../../model/geometry';
   import type { Point, Wall } from '../../model/types';
 
   /** The walls, their length labels and the end handles of the selected wall. */
@@ -11,6 +11,8 @@
 
   const svgPoints = (poly: Point[]) => poly.map((p) => `${p.x},${p.y}`).join(' ');
 
+  const shapes = $derived(wallShapes(walls));
+
   function labelPos(w: Wall): Point {
     const n = wallNormal(w);
     const off = w.thickness / 2 + 9 * cmPerScreenPx;
@@ -18,8 +20,13 @@
   }
 </script>
 
+<!-- All outlines first, then all fills on top: a fill hides the half of every outline that lies
+     inside a wall, so where walls meet or overlap only the outer edge stays visible. -->
 {#each walls as w (w.id)}
-  <polygon points={svgPoints(wallPolygon(w))} class="wall" class:selected={w.id === selected?.id} />
+  <polygon points={svgPoints(shapes.get(w.id)!)} class="wall-edge" />
+{/each}
+{#each walls as w (w.id)}
+  <polygon points={svgPoints(shapes.get(w.id)!)} class="wall" class:selected={w.id === selected?.id} />
 {/each}
 
 {#each walls as w (w.id)}
@@ -38,14 +45,25 @@
 {/if}
 
 <style>
+  .wall-edge {
+    fill: none;
+    stroke: var(--wall-edge);
+    /* The inner half is covered by the fill, leaving a 1px edge (the fill's own stroke takes 0.5px). */
+    stroke-width: 3;
+    /* Round: a miter join would poke out at the sharp corners of a mitred wall end. */
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
   .wall {
     fill: var(--wall);
-    stroke: var(--wall-edge);
+    /* Same colour as the fill: closes the anti-aliasing seam between joined walls. */
+    stroke: var(--wall);
     stroke-width: 1;
     vector-effect: non-scaling-stroke;
   }
   .wall.selected {
     fill: var(--accent);
+    stroke: var(--accent);
   }
   .dim {
     fill: var(--dim);
