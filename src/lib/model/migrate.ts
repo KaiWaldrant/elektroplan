@@ -29,5 +29,7 @@ export function migrateProject(raw: unknown): Project {
   }
   // 3 → 4: Contactdozen, Datacontactdoos and Ventilator (#11b); only new kinds, the data stays as it is
   if (project.version === 3) project.version = 4;
+  // 4 → 5: Combinaties (#12); no Combinaties yet, so every Toestel is a Combinatie of one
+  if (project.version === 4) Object.assign(project, { version: 5, gangs: [] });
   return project as unknown as Project;
 }

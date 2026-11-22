@@ -44,6 +44,7 @@ const project = (over: Partial<Floor> = {}): Project => ({
   name: 'Voorbeeld',
   floors: [floor(over), { id: 'other', name: 'Verdieping 1', level: 300, walls: [] }],
   devices: [lightPoint('d1', 'f', 300, 300), lightPoint('d2', 'other', 300, 300), { id: 'd3', type: 'lightPoint', mount: 'ceiling' }],
+  gangs: [],
   createdAt: '',
   updatedAt: '',
 });

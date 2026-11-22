@@ -1,4 +1,5 @@
-import { removeDevice, selectedDevice } from '../model/devices';
+import { selectedDevice } from '../model/devices';
+import { removeDeviceAndCloseGang, tidyGangs } from '../model/gangs';
 import { migrateProject } from '../model/migrate';
 import { blobKeys, createFloor, createProject, removeFloor, uid } from '../model/project';
 import type { Background, Floor, Id, Point, Project, Selection } from '../model/types';
@@ -147,7 +148,7 @@ class Store {
     const sel = this.selection;
     if (sel?.kind === 'wall') this.mutateFloor((f) => (f.walls = f.walls.filter((w) => w.id !== sel.id)));
     const device = selectedDevice(this.project.devices, this.activeFloorId, sel);
-    if (device) this.mutate((p) => removeDevice(p, device.id));
+    if (device) this.mutate((p) => removeDeviceAndCloseGang(p, device.id));
     this.selection = null;
   }
 
@@ -162,7 +163,10 @@ class Store {
 
   removeFloor(id: Id) {
     if (this.project.floors.length <= 1) return;
-    this.mutate((p) => removeFloor(p, id));
+    this.mutate((p) => {
+      removeFloor(p, id);
+      tidyGangs(p);
+    });
     if (this.activeFloorId === id) this.activeFloorId = this.project.floors[0].id;
     this.selection = null;
   }
