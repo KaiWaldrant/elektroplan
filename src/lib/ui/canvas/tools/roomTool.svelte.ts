@@ -1,4 +1,4 @@
-import { dist, isSimplePolygon } from '../../../model/geometry';
+import { dist, isSimplePolygon, roundPoint } from '../../../model/geometry';
 import { addRoom } from '../../../model/rooms';
 import type { Point } from '../../../model/types';
 import { store } from '../../../state/store.svelte';
@@ -90,7 +90,8 @@ export class RoomTool implements CanvasTool {
   /** Add the Ruimte (at least three corners) and select it, so it can be named. An outline that crosses itself stays open. */
   private close() {
     const corners = this.corners;
-    if (corners.length >= 3 && !isSimplePolygon(corners)) {
+    // Check the corners as addRoom will store them: rounded to whole cm (a wall-end snap may be fractional).
+    if (corners.length >= 3 && !isSimplePolygon(corners.map(roundPoint))) {
       this.crossing = true;
       return;
     }
