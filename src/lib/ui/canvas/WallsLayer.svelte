@@ -12,8 +12,6 @@
   const svgPoints = (poly: Point[]) => poly.map((p) => `${p.x},${p.y}`).join(' ');
 
   const shapes = $derived(wallShapes(walls));
-  /** Fill order: the selected wall last, so its highlight is never covered at a T-junction. */
-  const fillOrder = $derived([...walls.filter((w) => w.id !== selected?.id), ...walls.filter((w) => w.id === selected?.id)]);
 
   function labelPos(w: Wall): Point {
     const n = wallNormal(w);
@@ -27,7 +25,7 @@
 {#each walls as w (w.id)}
   <polygon points={svgPoints(shapes.get(w.id)!)} class="wall-edge" />
 {/each}
-{#each fillOrder as w (w.id)}
+{#each walls as w (w.id)}
   <polygon points={svgPoints(shapes.get(w.id)!)} class="wall" class:selected={w.id === selected?.id} />
 {/each}
 
