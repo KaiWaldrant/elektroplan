@@ -114,8 +114,22 @@ export interface Gang {
   finish?: string;
 }
 
+/**
+ * A Bediening: Lichtpunten that go on and off together, plus the Drukknoppen or the Schakelaars
+ * (never both) that switch them. Each of these Toestellen is in at most one Bediening; they may sit
+ * on different floors. One Bediening is one light in Home Assistant.
+ */
+export interface Control {
+  id: Id;
+  /** Short name; in snake_case it is the `<thing>` in `light.<area>_<thing>`. */
+  name: string;
+  lightPointIds: Id[];
+  /** The Drukknoppen, or the Schakelaars. */
+  controllerIds: Id[];
+}
+
 /** Current version of the project data; older projects are migrated on load (see migrate.ts). */
-export const PROJECT_VERSION = 6;
+export const PROJECT_VERSION = 7;
 
 export interface Project {
   version: typeof PROJECT_VERSION;
@@ -126,6 +140,8 @@ export interface Project {
   devices: Device[];
   /** The Combinaties of more than one Toestel, or with their own Afwerking. */
   gangs: Gang[];
+  /** The Bedieningen. */
+  controls: Control[];
   /** Default Afwerking of the project, as a name (e.g. "Niko Original zwart"); absent while not chosen. */
   finish?: string;
   createdAt: string;
@@ -133,7 +149,7 @@ export interface Project {
 }
 
 /** What the user has selected on the canvas. */
-export type Selection = { kind: 'wall'; id: Id } | { kind: 'device'; id: Id } | { kind: 'room'; id: Id } | null;
+export type Selection = { kind: 'wall'; id: Id } | { kind: 'device'; id: Id } | { kind: 'room'; id: Id } | { kind: 'control'; id: Id } | null;
 
 /** One end of a wall, referenced by the wall's id. */
 export interface WallEnd {

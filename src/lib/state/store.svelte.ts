@@ -1,3 +1,4 @@
+import { removeControl, tidyControls } from '../model/controls';
 import { selectedDevice } from '../model/devices';
 import { removeDeviceAndCloseGang, tidyGangs } from '../model/gangs';
 import { migrateProject } from '../model/migrate';
@@ -149,8 +150,13 @@ class Store {
     const sel = this.selection;
     if (sel?.kind === 'wall') this.mutateFloor((f) => (f.walls = f.walls.filter((w) => w.id !== sel.id)));
     if (sel?.kind === 'room') this.mutate((p) => removeRoom(p, sel.id));
+    if (sel?.kind === 'control') this.mutate((p) => removeControl(p, sel.id));
     const device = selectedDevice(this.project.devices, this.activeFloorId, sel);
-    if (device) this.mutate((p) => removeDeviceAndCloseGang(p, device.id));
+    if (device)
+      this.mutate((p) => {
+        removeDeviceAndCloseGang(p, device.id);
+        tidyControls(p);
+      });
     this.selection = null;
   }
 
@@ -168,14 +174,16 @@ class Store {
     this.mutate((p) => {
       removeFloor(p, id);
       tidyGangs(p);
+      tidyControls(p);
     });
     if (this.activeFloorId === id) this.activeFloorId = this.project.floors[0].id;
     this.selection = null;
   }
 
+  /** Show another floor; a selected Bediening stays selected, since it may span floors (a stair light). */
   selectFloor(id: Id) {
     this.activeFloorId = id;
-    this.selection = null;
+    if (this.selection?.kind !== 'control') this.selection = null;
   }
 
   // ---------------------------------------------------------------- background

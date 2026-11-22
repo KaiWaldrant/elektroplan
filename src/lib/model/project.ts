@@ -18,6 +18,7 @@ export function createProject(name = 'Nieuw project'): Project {
     floors: [createFloor('Gelijkvloers', 0)],
     devices: [],
     gangs: [],
+    controls: [],
     createdAt: now,
     updatedAt: now,
   };

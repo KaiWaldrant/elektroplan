@@ -1,7 +1,8 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { backgroundCorners } from '../model/geometry';
-  import type { Point } from '../model/types';
+  import type { Id, Point } from '../model/types';
+  import { selectedControl } from '../model/controls';
   import { selectedRoom } from '../model/rooms';
   import { selectedWall } from '../model/walls';
   import { store } from '../state/store.svelte';
@@ -11,11 +12,13 @@
   import { devicesOnFloor, placeDevice, positionAt, selectedDevice } from '../model/devices';
   import { gangMembers, joinGang, joinTargetAt } from '../model/gangs';
   import BackgroundLayer from './canvas/BackgroundLayer.svelte';
+  import ControlLayer from './canvas/ControlLayer.svelte';
   import DevicesLayer from './canvas/DevicesLayer.svelte';
   import { DEVICE_DRAG_TYPE, WALL_DEVICE_DRAG_TYPE } from './canvas/deviceDrag';
   import Overlay from './canvas/Overlay.svelte';
   import RoomsLayer from './canvas/RoomsLayer.svelte';
   import WallsLayer from './canvas/WallsLayer.svelte';
+  import { ControlTool } from './canvas/tools/controlTool.svelte';
   import { PickTool } from './canvas/tools/pickTool.svelte';
   import { RoomTool } from './canvas/tools/roomTool.svelte';
   import { SelectTool } from './canvas/tools/selectTool.svelte';
@@ -36,6 +39,7 @@
     select: new SelectTool(),
     wall: new WallTool(),
     room: new RoomTool(),
+    control: new ControlTool(),
     measure: new PickTool('measure'),
     calibrate: new PickTool('calibrate'),
   } satisfies Record<Tool, CanvasTool>;
@@ -45,6 +49,9 @@
   const cmPerScreenPx = $derived(1 / view.zoom);
   const floorDevices = $derived(devicesOnFloor(store.project.devices, floor.id));
   const selected = $derived(selectedDevice(store.project.devices, floor.id, store.selection));
+  const activeControl = $derived(selectedControl(store.project, store.selection));
+  /** The Toestellen with these ids that are placed on the shown floor. */
+  const onThisFloor = (ids: Id[]) => floorDevices.filter((d) => ids.includes(d.id));
   /** The Toestel a wall Toestel dragged from the palette would join if dropped now. */
   let paletteTarget = $state<string | null>(null);
   const joinTarget = $derived(paletteTarget ?? (active instanceof SelectTool ? active.joinTarget : null));
@@ -221,6 +228,13 @@
     />
     <RoomsLayer rooms={floor.rooms} selected={selectedRoom(floor, store.selection)} zoom={view.zoom} />
     <WallsLayer walls={floor.walls} selected={selectedWall(floor, store.selection)} zoom={view.zoom} />
+    {#if activeControl}
+      <ControlLayer
+        lights={onThisFloor(activeControl.lightPointIds)}
+        controllers={onThisFloor(activeControl.controllerIds)}
+        zoom={view.zoom}
+      />
+    {/if}
     <DevicesLayer
       devices={floorDevices}
       selectedId={selected?.id}
@@ -258,6 +272,7 @@
   }
   svg.tool-wall,
   svg.tool-room,
+  svg.tool-control,
   svg.tool-calibrate,
   svg.tool-measure {
     cursor: crosshair;

@@ -36,5 +36,7 @@ export function migrateProject(raw: unknown): Project {
     const floors = (project.floors as object[]).map((f) => ({ ...f, rooms: [] }));
     Object.assign(project, { version: 6, floors });
   }
+  // 6 → 7: Bedieningen (#14); none yet
+  if (project.version === 6) Object.assign(project, { version: 7, controls: [] });
   return project as unknown as Project;
 }
