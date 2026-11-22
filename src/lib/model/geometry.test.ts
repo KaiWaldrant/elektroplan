@@ -14,8 +14,10 @@ import {
   snapAngle,
   wallNormal,
   wallPolygon,
+  wallShapes,
   withLength,
 } from './geometry';
+import type { Point } from './types';
 import type { Background, Wall } from './types';
 
 const bg = (over: Partial<Background> = {}): Background => ({
@@ -80,6 +82,121 @@ describe('wallPolygon', () => {
     const poly = wallPolygon({ id: 'w', a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, thickness: 20 });
     const ys = poly.map((p) => p.y).sort((a, b) => a - b);
     expect(ys).toEqual([-10, -10, 10, 10]);
+  });
+});
+
+const wall = (id: string, a: Point, b: Point, thickness = 20): Wall => ({ id, a, b, thickness });
+
+/** Compare polygons point by point, allowing float noise. */
+function expectPolygon(actual: Point[] | undefined, expected: Point[]) {
+  expect(actual?.map((p) => [round(p.x), round(p.y)])).toEqual(expected.map((p) => [round(p.x), round(p.y)]));
+}
+const round = (v: number) => Math.round(v * 1000) / 1000 + 0;
+
+describe('wallShapes', () => {
+  it('draws a lone wall as its plain rectangle', () => {
+    const shapes = wallShapes([wall('w', { x: 0, y: 0 }, { x: 100, y: 0 })]);
+    expectPolygon(shapes.get('w'), [
+      { x: 0, y: -10 },
+      { x: 0, y: 10 },
+      { x: 100, y: 10 },
+      { x: 100, y: -10 },
+    ]);
+  });
+
+  it('mitres an L-corner: both walls end on the outer and inner corner point', () => {
+    const shapes = wallShapes([wall('w1', { x: 0, y: 0 }, { x: 100, y: 0 }), wall('w2', { x: 100, y: 0 }, { x: 100, y: 100 })]);
+    expectPolygon(shapes.get('w1'), [
+      { x: 0, y: -10 },
+      { x: 0, y: 10 },
+      { x: 90, y: 10 },
+      { x: 100, y: 0 },
+      { x: 110, y: -10 },
+    ]);
+    expectPolygon(shapes.get('w2'), [
+      { x: 110, y: -10 },
+      { x: 100, y: 0 },
+      { x: 90, y: 10 },
+      { x: 90, y: 100 },
+      { x: 110, y: 100 },
+    ]);
+  });
+
+  it('mitres walls of different thickness on the corner of their faces', () => {
+    const shapes = wallShapes([
+      wall('w1', { x: 0, y: 0 }, { x: 100, y: 0 }, 20),
+      wall('w2', { x: 100, y: 0 }, { x: 100, y: 100 }, 10),
+    ]);
+    expectPolygon(shapes.get('w1'), [
+      { x: 0, y: -10 },
+      { x: 0, y: 10 },
+      { x: 95, y: 10 },
+      { x: 100, y: 0 },
+      { x: 105, y: -10 },
+    ]);
+    expectPolygon(shapes.get('w2'), [
+      { x: 105, y: -10 },
+      { x: 100, y: 0 },
+      { x: 95, y: 10 },
+      { x: 95, y: 100 },
+      { x: 105, y: 100 },
+    ]);
+  });
+
+  it('ends a straight join square, with a step where the thickness changes', () => {
+    const shapes = wallShapes([
+      wall('w1', { x: 0, y: 0 }, { x: 100, y: 0 }, 20),
+      wall('w2', { x: 100, y: 0 }, { x: 200, y: 0 }, 10),
+    ]);
+    expectPolygon(shapes.get('w1'), [
+      { x: 0, y: -10 },
+      { x: 0, y: 10 },
+      { x: 100, y: 10 },
+      { x: 100, y: 0 },
+      { x: 100, y: -10 },
+    ]);
+    expectPolygon(shapes.get('w2'), [
+      { x: 100, y: -5 },
+      { x: 100, y: 0 },
+      { x: 100, y: 5 },
+      { x: 200, y: 5 },
+      { x: 200, y: -5 },
+    ]);
+  });
+
+  it('joins three walls at one point without a gap or overlap', () => {
+    const shapes = wallShapes([
+      wall('w1', { x: 0, y: 0 }, { x: 100, y: 0 }),
+      wall('w2', { x: 100, y: 0 }, { x: 200, y: 0 }),
+      wall('w3', { x: 100, y: 0 }, { x: 100, y: 100 }),
+    ]);
+    expectPolygon(shapes.get('w1'), [
+      { x: 0, y: -10 },
+      { x: 0, y: 10 },
+      { x: 90, y: 10 },
+      { x: 100, y: 0 },
+      { x: 100, y: -10 },
+    ]);
+    expectPolygon(shapes.get('w2'), [
+      { x: 100, y: -10 },
+      { x: 100, y: 0 },
+      { x: 110, y: 10 },
+      { x: 200, y: 10 },
+      { x: 200, y: -10 },
+    ]);
+    expectPolygon(shapes.get('w3'), [
+      { x: 110, y: 10 },
+      { x: 100, y: 0 },
+      { x: 90, y: 10 },
+      { x: 90, y: 100 },
+      { x: 110, y: 100 },
+    ]);
+  });
+
+  it('bevels a nearly folded join instead of a long mitre spike', () => {
+    const shapes = wallShapes([wall('w1', { x: 0, y: 0 }, { x: 100, y: 0 }), wall('w2', { x: 100, y: 0 }, { x: 0, y: 20 })]);
+    // A mitre would reach about 100 cm past the corner; a bevel stays within the thickness.
+    for (const p of [...shapes.get('w1')!, ...shapes.get('w2')!]) expect(p.x).toBeLessThanOrEqual(110);
   });
 });
 

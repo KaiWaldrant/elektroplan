@@ -1,5 +1,5 @@
 import { formatDecimal } from './numbers';
-import type { Background, Point, Wall } from './types';
+import type { Background, Id, Point, Wall } from './types';
 
 export const dist = (a: Point, b: Point): number => Math.hypot(b.x - a.x, b.y - a.y);
 
@@ -77,6 +77,95 @@ export function wallPolygon(w: Wall): Point[] {
     { x: w.b.x - nx, y: w.b.y - ny },
     { x: w.a.x - nx, y: w.a.y - ny },
   ];
+}
+
+/** A mitre may reach at most this many wall thicknesses past the corner; a longer one becomes a bevel. */
+const MITRE_LIMIT = 2;
+
+/** One wall end at a joint, seen from the joint point. */
+interface JointEnd {
+  wall: Wall;
+  end: 'a' | 'b';
+  /** Unit direction from the joint along the wall. */
+  u: Point;
+  angle: number;
+}
+
+/**
+ * The outline of every wall as drawn on the plan, by wall id. Walls whose ends share a point
+ * are mitred there, so joined walls meet in a clean corner. Each polygon runs from the a end
+ * to the b end, starting on the a−n side (n = `wallNormal`).
+ */
+export function wallShapes(walls: Wall[]): Map<Id, Point[]> {
+  const ends: JointEnd[] = [];
+  for (const w of walls) {
+    if (dist(w.a, w.b) === 0) continue;
+    for (const end of ['a', 'b'] as const) {
+      const from = w[end];
+      const to = end === 'a' ? w.b : w.a;
+      const len = dist(from, to);
+      const u = { x: (to.x - from.x) / len, y: (to.y - from.y) / len };
+      ends.push({ wall: w, end, u, angle: Math.atan2(u.y, u.x) });
+    }
+  }
+
+  const caps = new Map<JointEnd, Point[]>();
+  for (const e of ends) {
+    if (caps.has(e)) continue;
+    const node = e.wall[e.end];
+    const joint = ends.filter((o) => samePoint(o.wall[o.end], node));
+    jointCaps(joint, node).forEach((cap, i) => caps.set(joint[i], cap));
+  }
+
+  const shapes = new Map<Id, Point[]>();
+  for (const w of walls) {
+    const [p0, p1, p2, p3] = wallPolygon(w);
+    const capOf = (end: 'a' | 'b') => caps.get(ends.find((e) => e.wall === w && e.end === end)!);
+    shapes.set(w.id, dist(w.a, w.b) === 0 ? [p3, p0, p1, p2] : [...capOf('a')!, ...capOf('b')!]);
+  }
+  return shapes;
+}
+
+/**
+ * The end outline of each wall end meeting at `node`, in the order of `joint`. A cap runs
+ * from the wall's −p side to its +p side, where p is its direction turned a quarter towards
+ * the next wall around the joint.
+ */
+function jointCaps(joint: JointEnd[], node: Point): Point[][] {
+  const side = (e: JointEnd, sign: 1 | -1): Point => {
+    const h = (sign * e.wall.thickness) / 2;
+    return { x: node.x - e.u.y * h, y: node.y + e.u.x * h };
+  };
+  if (joint.length === 1) return [[side(joint[0], -1), side(joint[0], 1)]];
+
+  const order = joint.map((_, i) => i).sort((i, j) => joint[i].angle - joint[j].angle);
+  const minusSide: Point[][] = [];
+  const plusSide: Point[][] = [];
+  order.forEach((i, k) => {
+    const e = joint[i];
+    const nextIndex = order[(k + 1) % order.length];
+    const next = joint[nextIndex];
+    let turn = next.angle - e.angle;
+    if (turn <= 0) turn += 2 * Math.PI;
+    const mitre = intersectLines(side(e, 1), e.u, side(next, -1), next.u);
+    if (mitre && dist(mitre, node) <= MITRE_LIMIT * Math.max(e.wall.thickness, next.wall.thickness)) {
+      plusSide[i] = [mitre];
+      minusSide[nextIndex] = [mitre];
+    } else {
+      // Bevel: on the outside of the join, close the gap between the two faces.
+      plusSide[i] = turn > Math.PI + 1e-6 ? [side(next, -1), side(e, 1)] : [side(e, 1)];
+      minusSide[nextIndex] = [side(next, -1)];
+    }
+  });
+  return joint.map((_, i) => [...minusSide[i], node, ...plusSide[i]]);
+}
+
+/** Intersection of the lines p + s·u and q + t·v, or null when they are parallel. */
+function intersectLines(p: Point, u: Point, q: Point, v: Point): Point | null {
+  const cross = u.x * v.y - u.y * v.x;
+  if (Math.abs(cross) < 1e-9) return null;
+  const s = ((q.x - p.x) * v.y - (q.y - p.y) * v.x) / cross;
+  return { x: p.x + s * u.x, y: p.y + s * u.y };
 }
 
 /** Keep `a`, move `b` so the wall gets the given length. */
