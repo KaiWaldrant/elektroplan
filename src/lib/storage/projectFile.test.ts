@@ -66,14 +66,14 @@ describe('project file', () => {
 
   it('writes the current file version', async () => {
     const text = await exportProjectFile(createProject(), memoryBlobs().getBlob);
-    expect(JSON.parse(text).version).toBe(6);
+    expect(JSON.parse(text).version).toBe(7);
   });
 
   it('opens a version 1 file and migrates its project', async () => {
     const { devices: _, gangs: __, ...oldProject } = { ...createProject('Oud'), version: 1 };
     const text = JSON.stringify({ format: 'elektroplan', version: 1, project: oldProject, blobs: {} });
     const opened = await importProjectFile(text, memoryBlobs().putBlob);
-    expect(opened.version).toBe(6);
+    expect(opened.version).toBe(7);
     expect(opened.devices).toEqual([]);
     expect(opened.gangs).toEqual([]);
   });
@@ -91,7 +91,7 @@ describe('project file', () => {
   });
 
   it('refuses a file from a newer version of the app', async () => {
-    const text = JSON.stringify({ format: 'elektroplan', version: 7, project: createProject(), blobs: {} });
+    const text = JSON.stringify({ format: 'elektroplan', version: 8, project: createProject(), blobs: {} });
     await expect(importProjectFile(text, memoryBlobs().putBlob)).rejects.toThrow(/nieuwere versie/);
   });
 });

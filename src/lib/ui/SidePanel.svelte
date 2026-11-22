@@ -17,13 +17,17 @@
     setGangOrientation,
   } from '../model/gangs';
   import { haArea, renameRoom, roomOf, selectedRoom, setHaArea, toSnakeCase } from '../model/rooms';
-  import type { Orientation } from '../model/types';
+  import { controlKind, controlOf, haLightId, renameControl, selectedControl } from '../model/controls';
+  import { findDevice } from '../model/devices';
+  import type { Control, Orientation } from '../model/types';
 
   const floor = $derived(store.floor);
   const bg = $derived(floor.background);
   const wall = $derived(selectedWall(floor, store.selection));
   const device = $derived(selectedDevice(store.project.devices, floor.id, store.selection));
   const room = $derived(selectedRoom(floor, store.selection));
+  const control = $derived(selectedControl(store.project, store.selection));
+  const deviceControl = $derived(device ? controlOf(store.project, device.id) : undefined);
   const deviceRoom = $derived(device ? roomOf(store.project, device) : undefined);
   const gang = $derived(device ? gangOf(store.project, device.id) : undefined);
   const gangSize = $derived(device ? gangMembers(store.project, device.id).length : 0);
@@ -34,6 +38,24 @@
     if (id) store.mutateFloor((f) => setWallLength(f.walls, id, len));
     lengthDialog = false;
   }
+
+  /** The Toestellen of a Bediening that are placed on another floor than the shown one, or not at all. */
+  function elsewhere(c: Control): number {
+    return [...c.lightPointIds, ...c.controllerIds].filter(
+      (id) => findDevice(store.project.devices, id)?.placement?.floorId !== floor.id,
+    ).length;
+  }
+
+  /** Select a Bediening; with none of it on the shown floor, show the floor of its first placed Toestel. */
+  function showControl(c: Control) {
+    const ids = [...c.lightPointIds, ...c.controllerIds];
+    const floors = ids.map((id) => findDevice(store.project.devices, id)?.placement?.floorId);
+    const target = floors.find((f) => !!f);
+    if (!floors.includes(floor.id) && target) store.selectFloor(target);
+    store.selection = { kind: 'control', id: c.id };
+  }
+
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
   function inputNumber(e: Event): number | null {
     return parseDecimal((e.target as HTMLInputElement).value);
@@ -155,10 +177,54 @@
   </section>
 
   <section>
+    <h3>Bedieningen</h3>
+    {#if control}
+      {@const kind = controlKind(store.project, control)}
+      {@const away = elsewhere(control)}
+      <label>
+        Naam
+        <input
+          value={control.name}
+          onchange={(e) => {
+            const id = control?.id;
+            const input = e.target as HTMLInputElement;
+            if (id && input.value.trim() && input.value.trim() !== control?.name)
+              store.mutate((p) => renameControl(p, id, input.value));
+            input.value = control?.name ?? ''; // an emptied field shows the name again
+          }}
+        />
+      </label>
+      <p class="muted">Home Assistant: <code>{haLightId(store.project, control)}</code></p>
+      <p>
+        {plural(control.lightPointIds.length, 'lichtpunt', 'lichtpunten')},
+        {kind === 'switch'
+          ? plural(control.controllerIds.length, 'schakelaar', 'schakelaars')
+          : plural(control.controllerIds.length, 'drukknop', 'drukknoppen')}
+      </p>
+      {#if away}<p class="muted">{away} ervan op een andere verdieping.</p>{/if}
+      <button class="danger" onclick={() => store.removeSelection()}>Bediening verwijderen <kbd>Del</kbd></button>
+    {/if}
+    {#if store.project.controls.length}
+      <ul class="rooms">
+        {#each store.project.controls as c (c.id)}
+          <li class:active={c.id === control?.id}>
+            <button class="link" onclick={() => showControl(c)}>{c.name}</button>
+            <span class="muted">{plural(c.lightPointIds.length, 'lichtpunt', 'lichtpunten')}</span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+    <p class="muted">Met het gereedschap Bediening (B) klik je lichtpunten en hun drukknoppen of schakelaars samen.</p>
+  </section>
+
+  <section>
     <h3>Toestellen</h3>
     {#if device}
       {@const variants = variantsOf(device)}
       <p>Geselecteerd: <strong>{deviceLabel(device)}</strong></p>
+      {#if deviceControl}
+        <p>Bediening: <button class="link" onclick={() => deviceControl && showControl(deviceControl)}>{deviceControl.name}</button></p>
+      {/if}
       <p>Ruimte: {#if deviceRoom}<strong>{deviceRoom.name}</strong>{:else}<span class="muted">geen</span>{/if}</p>
       {#if variants.length > 1}
         <label>
