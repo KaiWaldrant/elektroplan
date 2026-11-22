@@ -17,8 +17,17 @@
     setGangOrientation,
   } from '../model/gangs';
   import { haArea, renameRoom, roomOf, selectedRoom, setHaArea, toSnakeCase } from '../model/rooms';
-  import { controlKind, controlOf, haLightId, renameControl, selectedControl } from '../model/controls';
-  import { findDevice } from '../model/devices';
+  import {
+    controlFloors,
+    controlKind,
+    controlMembers,
+    controlOf,
+    haLightId,
+    membersOnFloor,
+    renameControl,
+    sameHaLightId,
+    selectedControl,
+  } from '../model/controls';
   import type { Control, Orientation } from '../model/types';
 
   const floor = $derived(store.floor);
@@ -39,19 +48,10 @@
     lengthDialog = false;
   }
 
-  /** The Toestellen of a Bediening that are placed on another floor than the shown one, or not at all. */
-  function elsewhere(c: Control): number {
-    return [...c.lightPointIds, ...c.controllerIds].filter(
-      (id) => findDevice(store.project.devices, id)?.placement?.floorId !== floor.id,
-    ).length;
-  }
-
   /** Select a Bediening; with none of it on the shown floor, show the floor of its first placed Toestel. */
   function showControl(c: Control) {
-    const ids = [...c.lightPointIds, ...c.controllerIds];
-    const floors = ids.map((id) => findDevice(store.project.devices, id)?.placement?.floorId);
-    const target = floors.find((f) => !!f);
-    if (!floors.includes(floor.id) && target) store.selectFloor(target);
+    const floors = controlFloors(store.project, c);
+    if (floors.length && !floors.includes(floor.id)) store.selectFloor(floors[0]);
     store.selection = { kind: 'control', id: c.id };
   }
 
@@ -180,7 +180,8 @@
     <h3>Bedieningen</h3>
     {#if control}
       {@const kind = controlKind(store.project, control)}
-      {@const away = elsewhere(control)}
+      {@const away = controlMembers(control).length - membersOnFloor(store.project, control, floor.id).length}
+      {@const clashes = sameHaLightId(store.project, control)}
       <label>
         Naam
         <input
@@ -188,20 +189,23 @@
           onchange={(e) => {
             const id = control?.id;
             const input = e.target as HTMLInputElement;
-            if (id && input.value.trim() && input.value.trim() !== control?.name)
+            if (id && toSnakeCase(input.value) && input.value.trim() !== control?.name)
               store.mutate((p) => renameControl(p, id, input.value));
-            input.value = control?.name ?? ''; // an emptied field shows the name again
+            input.value = control?.name ?? ''; // a refused name shows the old one again
           }}
         />
       </label>
       <p class="muted">Home Assistant: <code>{haLightId(store.project, control)}</code></p>
+      {#if clashes.length}
+        <p class="warn">Zelfde id als {clashes.map((c) => c.name).join(', ')}: geef een andere naam.</p>
+      {/if}
       <p>
         {plural(control.lightPointIds.length, 'lichtpunt', 'lichtpunten')},
         {kind === 'switch'
           ? plural(control.controllerIds.length, 'schakelaar', 'schakelaars')
           : plural(control.controllerIds.length, 'drukknop', 'drukknoppen')}
       </p>
-      {#if away}<p class="muted">{away} ervan op een andere verdieping.</p>{/if}
+      {#if away}<p class="muted">{away} ervan op een andere verdieping of nog niet geplaatst.</p>{/if}
       <button class="danger" onclick={() => store.removeSelection()}>Bediening verwijderen <kbd>Del</kbd></button>
     {/if}
     {#if store.project.controls.length}

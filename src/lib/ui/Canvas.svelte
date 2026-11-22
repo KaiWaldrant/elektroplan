@@ -2,7 +2,7 @@
   import { untrack } from 'svelte';
   import { backgroundCorners } from '../model/geometry';
   import type { Id, Point } from '../model/types';
-  import { selectedControl as selectedControlOf } from '../model/controls';
+  import { selectedControl } from '../model/controls';
   import { selectedRoom } from '../model/rooms';
   import { selectedWall } from '../model/walls';
   import { store } from '../state/store.svelte';
@@ -49,7 +49,7 @@
   const cmPerScreenPx = $derived(1 / view.zoom);
   const floorDevices = $derived(devicesOnFloor(store.project.devices, floor.id));
   const selected = $derived(selectedDevice(store.project.devices, floor.id, store.selection));
-  const selectedControl = $derived(selectedControlOf(store.project, store.selection));
+  const activeControl = $derived(selectedControl(store.project, store.selection));
   /** The Toestellen with these ids that are placed on the shown floor. */
   const onThisFloor = (ids: Id[]) => floorDevices.filter((d) => ids.includes(d.id));
   /** The Toestel a wall Toestel dragged from the palette would join if dropped now. */
@@ -228,10 +228,10 @@
     />
     <RoomsLayer rooms={floor.rooms} selected={selectedRoom(floor, store.selection)} zoom={view.zoom} />
     <WallsLayer walls={floor.walls} selected={selectedWall(floor, store.selection)} zoom={view.zoom} />
-    {#if selectedControl}
+    {#if activeControl}
       <ControlLayer
-        lights={onThisFloor(selectedControl.lightPointIds)}
-        controllers={onThisFloor(selectedControl.controllerIds)}
+        lights={onThisFloor(activeControl.lightPointIds)}
+        controllers={onThisFloor(activeControl.controllerIds)}
         zoom={view.zoom}
       />
     {/if}

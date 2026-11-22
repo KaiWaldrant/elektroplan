@@ -180,9 +180,10 @@ class Store {
     this.selection = null;
   }
 
+  /** Show another floor; a selected Bediening stays selected, since it may span floors (a stair light). */
   selectFloor(id: Id) {
     this.activeFloorId = id;
-    this.selection = null;
+    if (this.selection?.kind !== 'control') this.selection = null;
   }
 
   // ---------------------------------------------------------------- background

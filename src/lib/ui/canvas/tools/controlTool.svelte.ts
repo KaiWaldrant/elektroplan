@@ -4,8 +4,7 @@ import {
   findControl,
   startControl,
   toggleInControl,
-  toggleResult,
-  type ToggleResult,
+  previewToggle,
 } from '../../../model/controls';
 import { hitDevice } from '../../../model/devices';
 import type { Id } from '../../../model/types';
@@ -16,10 +15,8 @@ import type { CanvasPointer, CanvasTool, PressResult } from './tool';
 const HIT_PX = 4;
 
 /** Why a click did not change the Bediening, for the status bar. */
-const REFUSED: Partial<Record<ToggleResult, string>> = {
-  notAllowed: 'Alleen lichtpunten, drukknoppen en schakelaars horen in een bediening.',
-  mixed: 'Een bediening heeft drukknoppen óf schakelaars, niet beide.',
-};
+const NOT_ALLOWED = 'Alleen lichtpunten, drukknoppen en schakelaars horen in een bediening.';
+const MIXED = 'Een bediening heeft drukknoppen óf schakelaars, niet beide.';
 
 /**
  * Builds Bedieningen: a click on a Lichtpunt, Drukknop or Schakelaar starts a Bediening with it, or
@@ -33,7 +30,7 @@ export class ControlTool implements CanvasTool {
   get hint(): string {
     if (this.refusal) return this.refusal;
     return this.selectedId()
-      ? 'Klik lichtpunten en drukknoppen of schakelaars om ze toe te voegen of weg te halen. Esc of klik naast = klaar.'
+      ? 'Klik lichtpunten en drukknoppen of schakelaars om ze toe te voegen of weg te halen (ook op een andere verdieping). Esc of klik naast = klaar.'
       : 'Bediening: klik een lichtpunt, drukknop of schakelaar om een bediening te beginnen of te kiezen.';
   }
 
@@ -49,14 +46,14 @@ export class ControlTool implements CanvasTool {
     if (own && own.id !== activeId) {
       store.selection = { kind: 'control', id: own.id };
     } else if (activeId) {
-      const result = toggleResult(store.project, activeId, device.id);
-      this.refusal = REFUSED[result] ?? '';
+      const result = previewToggle(store.project, activeId, device.id);
+      this.refusal = result === 'notAllowed' ? NOT_ALLOWED : result === 'mixed' ? MIXED : '';
       if (result !== 'added' && result !== 'removed') return null;
       store.mutate((pr) => toggleInControl(pr, activeId, device.id));
       // taking out the last Toestel deletes the Bediening
       if (!findControl(store.project, activeId)) store.selection = null;
     } else if (!controlRole(device)) {
-      this.refusal = REFUSED.notAllowed!;
+      this.refusal = NOT_ALLOWED;
     } else {
       let id: Id | undefined;
       store.mutate((pr) => (id = startControl(pr, device.id)?.id));

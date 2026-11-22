@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
+  controlFloors,
   controlKind,
+  controlMembers,
   controlOf,
   controlRole,
   haLightId,
+  membersOnFloor,
+  sameHaLightId,
   removeControl,
   renameControl,
   startControl,
   tidyControls,
   toggleInControl,
-  toggleResult,
+  previewToggle,
 } from './controls';
 import { placeDevice, removeDevice } from './devices';
 import { createFloor, createProject, removeFloor } from './project';
@@ -104,9 +108,9 @@ describe('toggleInControl', () => {
     const p = house();
     const c = startControl(p, place(p, button))!;
     const before = structuredClone(p);
-    expect(toggleResult(p, c.id, place(p, light))).toBe('added');
-    expect(toggleResult(p, c.id, c.controllerIds[0])).toBe('removed');
-    expect(toggleResult(p, c.id, place(p, twoWay))).toBe('mixed');
+    expect(previewToggle(p, c.id, place(p, light))).toBe('added');
+    expect(previewToggle(p, c.id, c.controllerIds[0])).toBe('removed');
+    expect(previewToggle(p, c.id, place(p, twoWay))).toBe('mixed');
     expect(p.controls).toEqual(before.controls);
   });
 
@@ -155,13 +159,31 @@ describe('tidyControls', () => {
 });
 
 describe('naming', () => {
-  it('renames, trimmed, and refuses an empty name', () => {
+  it('renames, trimmed, and refuses a name that gives no Home Assistant id', () => {
     const p = house();
     const c = startControl(p, place(p, light))!;
     renameControl(p, c.id, '  Plafond ');
     expect(c.name).toBe('Plafond');
-    renameControl(p, c.id, ' ');
+    for (const bad of [' ', '—', '!!']) renameControl(p, c.id, bad);
     expect(c.name).toBe('Plafond');
+  });
+
+  it('takes the area from the first Lichtpunt that is in a Ruimte', () => {
+    const p = house();
+    const c = startControl(p, place(p, light, 'f0', 900, 900))!; // outside the Leefruimte
+    toggleInControl(p, c.id, place(p, light));
+    renameControl(p, c.id, 'Plafond');
+    expect(haLightId(p, c)).toBe('light.leefruimte_plafond');
+  });
+
+  it('finds the other Bedieningen with the same Home Assistant id', () => {
+    const p = house();
+    const c1 = startControl(p, place(p, light))!;
+    const c2 = startControl(p, place(p, light))!;
+    const c3 = startControl(p, place(p, light, 'f0', 900, 900))!;
+    for (const c of [c1, c2, c3]) renameControl(p, c.id, 'Plafond');
+    expect(sameHaLightId(p, c1)).toEqual([c2]);
+    expect(sameHaLightId(p, c3)).toEqual([]);
   });
 
   it('gives the Home Assistant light id from the Ruimte of the first Lichtpunt and the name', () => {
@@ -178,6 +200,19 @@ describe('naming', () => {
     expect(haLightId(p, c)).toBe('light.tuin');
     const c2 = startControl(p, place(p, button))!;
     expect(haLightId(p, c2)).toBe('light.bediening_1'); // "Bediening 1" is free again after the rename
+  });
+});
+
+describe('members', () => {
+  it('lists the Toestellen of a Bediening, and where they are placed', () => {
+    const p = house();
+    const [l0, l1, b] = [place(p, light, 'f0'), place(p, light, 'f1'), place(p, button, 'f1')];
+    const c = startControl(p, l1)!;
+    toggleInControl(p, c.id, b);
+    toggleInControl(p, c.id, l0);
+    expect(controlMembers(c)).toEqual([l1, l0, b]);
+    expect(membersOnFloor(p, c, 'f1')).toEqual([l1, b]);
+    expect(controlFloors(p, c)).toEqual(['f1', 'f0']);
   });
 });
 
