@@ -8,9 +8,11 @@ import {
   dist,
   formatLength,
   hitWall,
+  isSimplePolygon,
   nearestPoint,
   pdfCmPerPx,
   projectOnSegment,
+  segmentsIntersect,
   snapAngle,
   wallNormal,
   wallPolygon,
@@ -167,5 +169,60 @@ describe('polygonArea', () => {
     ];
     expect(polygonArea(rect)).toBe(120000);
     expect(polygonArea([...rect].reverse())).toBe(120000);
+  });
+});
+
+describe('segmentsIntersect', () => {
+  const P = (x: number, y: number) => ({ x, y });
+
+  it('is true for segments that cross', () => {
+    expect(segmentsIntersect(P(0, 0), P(100, 100), P(0, 100), P(100, 0))).toBe(true);
+  });
+
+  it('is true when one end touches the other segment', () => {
+    expect(segmentsIntersect(P(0, 0), P(100, 0), P(50, 0), P(50, 80))).toBe(true);
+  });
+
+  it('is true for collinear segments that overlap, false for ones that only line up', () => {
+    expect(segmentsIntersect(P(0, 0), P(100, 0), P(50, 0), P(150, 0))).toBe(true);
+    expect(segmentsIntersect(P(0, 0), P(100, 0), P(120, 0), P(200, 0))).toBe(false);
+  });
+
+  it('is false for segments apart or parallel', () => {
+    expect(segmentsIntersect(P(0, 0), P(100, 0), P(0, 10), P(100, 10))).toBe(false);
+    expect(segmentsIntersect(P(0, 0), P(100, 100), P(60, 0), P(100, 30))).toBe(false);
+  });
+});
+
+describe('isSimplePolygon', () => {
+  const P = (x: number, y: number) => ({ x, y });
+  const square = [P(0, 0), P(100, 0), P(100, 100), P(0, 100)];
+  const ell = [P(0, 0), P(100, 0), P(100, 50), P(50, 50), P(50, 100), P(0, 100)];
+
+  it('accepts outlines that do not cross themselves, in either direction', () => {
+    expect(isSimplePolygon(square)).toBe(true);
+    expect(isSimplePolygon(ell)).toBe(true);
+    expect(isSimplePolygon([...ell].reverse())).toBe(true);
+    expect(isSimplePolygon([P(0, 0), P(100, 0), P(0, 100)])).toBe(true);
+  });
+
+  it('rejects a bow-tie', () => {
+    expect(isSimplePolygon([P(0, 0), P(100, 100), P(100, 0), P(0, 100)])).toBe(false);
+  });
+
+  it('rejects a corner lying on another edge', () => {
+    expect(isSimplePolygon([P(0, 0), P(100, 0), P(100, 100), P(50, 0), P(0, 100)])).toBe(false);
+  });
+
+  it('rejects an outline that folds back along itself', () => {
+    expect(isSimplePolygon([P(0, 0), P(100, 0), P(50, 0), P(50, 100)])).toBe(false);
+  });
+
+  it('rejects a corner used twice', () => {
+    expect(isSimplePolygon([P(0, 0), P(100, 0), P(100, 100), P(100, 100), P(0, 100)])).toBe(false);
+  });
+
+  it('rejects fewer than three corners', () => {
+    expect(isSimplePolygon(square.slice(0, 2))).toBe(false);
   });
 });

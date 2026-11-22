@@ -1,4 +1,4 @@
-import { pointInPolygon, polygonArea, roundPoint } from './geometry';
+import { isSimplePolygon, pointInPolygon, polygonArea, roundPoint } from './geometry';
 import { uid } from './project';
 import type { Device, Floor, Id, Point, Project, Room, Selection } from './types';
 
@@ -89,10 +89,14 @@ export function removeRoom(project: Project, roomId: Id): void {
   for (const d of project.devices) if (d.roomId === roomId) delete d.roomId;
 }
 
-/** Put corner `index` of a Ruimte on `to` (whole cm). */
-export function moveRoomCorner(floor: Floor, roomId: Id, index: number, to: Point): void {
+/** Put corner `index` of a Ruimte on `to` (whole cm), unless the outline would then cross itself. Returns whether it moved. */
+export function moveRoomCorner(floor: Floor, roomId: Id, index: number, to: Point): boolean {
   const r = findRoom(floor, roomId);
-  if (r && index >= 0 && index < r.polygon.length) r.polygon[index] = roundPoint(to);
+  if (!r || index < 0 || index >= r.polygon.length) return false;
+  const polygon = r.polygon.map((c, i) => (i === index ? roundPoint(to) : c));
+  if (!isSimplePolygon(polygon)) return false;
+  r.polygon[index] = polygon[index];
+  return true;
 }
 
 /** Move a Ruimte by (dx, dy) from its outline when the drag began (`polygonAtStart`), to whole cm. */
