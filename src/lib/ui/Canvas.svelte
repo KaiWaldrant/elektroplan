@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import { backgroundCorners } from '../model/geometry';
   import type { Point } from '../model/types';
+  import { selectedRoom } from '../model/rooms';
   import { selectedWall } from '../model/walls';
   import { store } from '../state/store.svelte';
   import type { Tool } from '../state/tools';
@@ -13,8 +14,10 @@
   import DevicesLayer from './canvas/DevicesLayer.svelte';
   import { DEVICE_DRAG_TYPE, WALL_DEVICE_DRAG_TYPE } from './canvas/deviceDrag';
   import Overlay from './canvas/Overlay.svelte';
+  import RoomsLayer from './canvas/RoomsLayer.svelte';
   import WallsLayer from './canvas/WallsLayer.svelte';
   import { PickTool } from './canvas/tools/pickTool.svelte';
+  import { RoomTool } from './canvas/tools/roomTool.svelte';
   import { SelectTool } from './canvas/tools/selectTool.svelte';
   import type { CanvasPointer, CanvasTool } from './canvas/tools/tool';
   import { WallTool } from './canvas/tools/wallTool.svelte';
@@ -32,6 +35,7 @@
   const tools = {
     select: new SelectTool(),
     wall: new WallTool(),
+    room: new RoomTool(),
     measure: new PickTool('measure'),
     calibrate: new PickTool('calibrate'),
   } satisfies Record<Tool, CanvasTool>;
@@ -46,8 +50,14 @@
   const joinTarget = $derived(paletteTarget ?? (active instanceof SelectTool ? active.joinTarget : null));
   /** Calibrating moves what is placed on the floor (ADR 0004); the dialog says so. */
   const calibrationNote = $derived.by(() => {
-    const moving = [floor.walls.length > 0 && 'muren', floorDevices.length > 0 && 'toestellen'].filter(Boolean);
-    return moving.length ? `De ${moving.join(' en ')} op deze verdieping schalen mee.` : undefined;
+    const moving = [
+      floor.walls.length > 0 && 'muren',
+      floor.rooms.length > 0 && 'ruimtes',
+      floorDevices.length > 0 && 'toestellen',
+    ].filter(Boolean);
+    if (!moving.length) return undefined;
+    const list = moving.length > 1 ? `${moving.slice(0, -1).join(', ')} en ${moving.at(-1)}` : moving[0];
+    return `De ${list} op deze verdieping schalen mee.`;
   });
 
   // ---------------------------------------------------------------- view
@@ -62,7 +72,7 @@
   }
 
   function fit() {
-    const points = floor.walls.flatMap((w) => [w.a, w.b]);
+    const points = [...floor.walls.flatMap((w) => [w.a, w.b]), ...floor.rooms.flatMap((r) => r.polygon)];
     if (floor.background) points.push(...backgroundCorners(floor.background));
     view = fitView(points, { widthPx, heightPx });
   }
@@ -208,6 +218,7 @@
       background={floor.background}
       imageUrl={floor.background ? store.imageUrls[floor.background.blobKey] : undefined}
     />
+    <RoomsLayer rooms={floor.rooms} selected={selectedRoom(floor, store.selection)} zoom={view.zoom} />
     <WallsLayer walls={floor.walls} selected={selectedWall(floor, store.selection)} zoom={view.zoom} />
     <DevicesLayer
       devices={floorDevices}
@@ -245,6 +256,7 @@
     user-select: none;
   }
   svg.tool-wall,
+  svg.tool-room,
   svg.tool-calibrate,
   svg.tool-measure {
     cursor: crosshair;

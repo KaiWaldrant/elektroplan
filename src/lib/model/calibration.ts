@@ -16,10 +16,10 @@ export function calibrate(bg: Background, p1: Point, p2: Point, realCm: number):
 
 /**
  * Calibrate the plan of floor `floorId` so `p1`–`p2` measures `realCm`, and move everything placed
- * on that floor with it (ADR 0004): wall ends and Toestellen scale around `p1` by the same factor,
+ * on that floor with it (ADR 0004): wall ends, Ruimte corners and Toestellen scale around `p1` by the same factor,
  * so they stay on the same spot of the plan. Wall thickness and symbol size do not come from the
  * plan and stay. Mutates `project`; a floor without a plan is left as it is, and nothing changes
- * if it throws. New kinds of items placed on a floor (Ruimtes) must be scaled here too.
+ * if it throws. New kinds of items placed on a floor must be scaled here too.
  */
 export function calibrateFloor(project: Project, floorId: Id, p1: Point, p2: Point, realCm: number): void {
   const floor = project.floors.find((f) => f.id === floorId);
@@ -33,5 +33,6 @@ export function calibrateFloor(project: Project, floorId: Id, p1: Point, p2: Poi
     w.a = scale(w.a);
     w.b = scale(w.b);
   }
+  for (const r of floor.rooms) r.polygon = r.polygon.map(scale);
   for (const d of devicesOnFloor(project.devices, floorId)) d.placement = { ...d.placement, at: scale(d.placement.at) };
 }

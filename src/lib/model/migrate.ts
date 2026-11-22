@@ -31,5 +31,10 @@ export function migrateProject(raw: unknown): Project {
   if (project.version === 3) project.version = 4;
   // 4 → 5: Combinaties (#12); no Combinaties yet, so every Toestel is a Combinatie of one
   if (project.version === 4) Object.assign(project, { version: 5, gangs: [] });
+  // 5 → 6: Ruimtes (#13); no floor has any yet
+  if (project.version === 5) {
+    const floors = (project.floors as object[]).map((f) => ({ ...f, rooms: [] }));
+    Object.assign(project, { version: 6, floors });
+  }
   return project as unknown as Project;
 }

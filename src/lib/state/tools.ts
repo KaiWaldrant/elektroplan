@@ -2,6 +2,7 @@
 export const TOOLS = [
   { id: 'select', label: 'Selecteren', key: 'V' },
   { id: 'wall', label: 'Muur', key: 'W' },
+  { id: 'room', label: 'Ruimte', key: 'U' },
   { id: 'measure', label: 'Meten', key: 'M' },
   { id: 'calibrate', label: 'Kalibreren', key: 'C' },
 ] as const;

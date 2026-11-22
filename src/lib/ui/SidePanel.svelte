@@ -16,12 +16,15 @@
     setGangFinish,
     setGangOrientation,
   } from '../model/gangs';
+  import { haArea, roomOf, selectedRoom, setHaArea, toSnakeCase } from '../model/rooms';
   import type { Orientation } from '../model/types';
 
   const floor = $derived(store.floor);
   const bg = $derived(floor.background);
   const wall = $derived(selectedWall(floor, store.selection));
   const device = $derived(selectedDevice(store.project.devices, floor.id, store.selection));
+  const room = $derived(selectedRoom(floor, store.selection));
+  const deviceRoom = $derived(device ? roomOf(store.project, device) : undefined);
   const gang = $derived(device ? gangOf(store.project, device.id) : undefined);
   const gangSize = $derived(device ? gangMembers(store.project, device.id).length : 0);
   let lengthDialog = $state(false);
@@ -106,10 +109,63 @@
   </section>
 
   <section>
+    <h3>Ruimtes</h3>
+    {#if room}
+      <label>
+        Naam
+        <input
+          value={room.name}
+          onchange={(e) => {
+            const id = room?.id;
+            const v = (e.target as HTMLInputElement).value.trim();
+            if (id && v && v !== room?.name)
+              store.mutateFloor((f) => {
+                const r = f.rooms.find((x) => x.id === id);
+                if (r) r.name = v;
+              });
+            else (e.target as HTMLInputElement).value = room?.name ?? '';
+          }}
+        />
+      </label>
+      <label>
+        Home Assistant-area
+        <input
+          value={room.haArea ?? ''}
+          placeholder={toSnakeCase(room.name)}
+          onchange={(e) => {
+            const id = room?.id;
+            const input = e.target as HTMLInputElement;
+            if (id)
+              store.mutateFloor((f) => {
+                const r = f.rooms.find((x) => x.id === id);
+                if (r) setHaArea(r, input.value);
+              });
+            input.value = room?.haArea ?? '';
+          }}
+        />
+      </label>
+      <p class="muted">Leeg = de naam in snake_case.</p>
+      <button class="danger" onclick={() => store.removeSelection()}>Ruimte verwijderen <kbd>Del</kbd></button>
+    {/if}
+    {#if floor.rooms.length}
+      <ul class="rooms">
+        {#each floor.rooms as r (r.id)}
+          <li class:active={r.id === room?.id}>
+            <button class="link" onclick={() => (store.selection = { kind: 'room', id: r.id })}>{r.name}</button>
+            <span class="muted">{haArea(r)}</span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+    <p class="muted">Teken een ruimte met het gereedschap Ruimte (U); toestellen erin krijgen die ruimte.</p>
+  </section>
+
+  <section>
     <h3>Toestellen</h3>
     {#if device}
       {@const variants = variantsOf(device)}
       <p>Geselecteerd: <strong>{deviceLabel(device)}</strong></p>
+      <p>Ruimte: {#if deviceRoom}<strong>{deviceRoom.name}</strong>{:else}<span class="muted">geen</span>{/if}</p>
       {#if variants.length > 1}
         <label>
           Soort

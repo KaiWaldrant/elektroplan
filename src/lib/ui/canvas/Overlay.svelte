@@ -1,6 +1,7 @@
 <script lang="ts">
   import { dist, formatLength } from '../../model/geometry';
   import { PickTool } from './tools/pickTool.svelte';
+  import { RoomTool } from './tools/roomTool.svelte';
   import type { CanvasTool } from './tools/tool';
   import { WallTool } from './tools/wallTool.svelte';
 
@@ -17,6 +18,14 @@
   <text x={end.x + 10 * cmPerScreenPx} y={end.y - 10 * cmPerScreenPx} font-size={12 * cmPerScreenPx} class="live">
     {tool.lengthInput ? `${tool.lengthInput} cm ⏎` : formatLength(dist(start, end))}
   </text>
+{/if}
+
+{#if tool instanceof RoomTool && tool.corners.length > 0}
+  {@const line = tool.preview ? [...tool.corners, tool.preview] : tool.corners}
+  <polyline points={line.map((p) => `${p.x},${p.y}`).join(' ')} class="outline" stroke-width={1.5 * cmPerScreenPx} />
+  {#each tool.corners as p, k (k)}
+    <circle cx={p.x} cy={p.y} r={(k === 0 && tool.closing ? 7 : 4) * cmPerScreenPx} class="pick" />
+  {/each}
 {/if}
 
 {#if tool instanceof PickTool && tool.picks.length > 0}
@@ -63,6 +72,11 @@
   .measure {
     stroke: var(--accent);
     stroke-dasharray: 4 3;
+  }
+  .outline {
+    fill: var(--room);
+    fill-opacity: 0.1;
+    stroke: var(--accent);
   }
   .pick {
     fill: var(--accent);

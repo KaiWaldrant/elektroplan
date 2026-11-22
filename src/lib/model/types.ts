@@ -40,6 +40,17 @@ export interface Floor {
   level: number;
   background?: Background;
   walls: Wall[];
+  rooms: Room[];
+}
+
+/** A Ruimte: a named room outlined on its Verdieping's plan. */
+export interface Room {
+  id: Id;
+  name: string;
+  /** The outline, corner after corner in world cm (closed: the last corner joins the first). */
+  polygon: Point[];
+  /** Home Assistant area id in snake_case; absent means the name in snake_case (see rooms.ts). */
+  haArea?: string;
 }
 
 /** Where a Toestel sits on a Verdieping's plan. */
@@ -77,6 +88,8 @@ export type Device = DeviceKind & {
   id: Id;
   /** Absent when the Toestel is not on any plan (yet). */
   placement?: Placement;
+  /** The Ruimte chosen by hand while the Toestel is not placed; a placed Toestel takes its Ruimte from its position. */
+  roomId?: Id;
 };
 
 /** A Toestel that is on a plan. */
@@ -102,7 +115,7 @@ export interface Gang {
 }
 
 /** Current version of the project data; older projects are migrated on load (see migrate.ts). */
-export const PROJECT_VERSION = 5;
+export const PROJECT_VERSION = 6;
 
 export interface Project {
   version: typeof PROJECT_VERSION;
@@ -120,7 +133,7 @@ export interface Project {
 }
 
 /** What the user has selected on the canvas. */
-export type Selection = { kind: 'wall'; id: Id } | { kind: 'device'; id: Id } | null;
+export type Selection = { kind: 'wall'; id: Id } | { kind: 'device'; id: Id } | { kind: 'room'; id: Id } | null;
 
 /** One end of a wall, referenced by the wall's id. */
 export interface WallEnd {

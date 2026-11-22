@@ -6,7 +6,7 @@ export function uid(): Id {
 }
 
 export function createFloor(name: string, level = 0): Floor {
-  return { id: uid(), name, level, walls: [] };
+  return { id: uid(), name, level, walls: [], rooms: [] };
 }
 
 export function createProject(name = 'Nieuw project'): Project {
