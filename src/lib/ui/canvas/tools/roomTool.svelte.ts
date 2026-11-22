@@ -5,6 +5,11 @@ import { store } from '../../../state/store.svelte';
 import { snapPointer } from './snapPointer';
 import type { CanvasPointer, CanvasTool, PressResult } from './tool';
 
+/** Screen px within which a second press counts as the same corner (the two presses of a double-click, a shaky hand). */
+const SAME_SPOT_PX = 4;
+/** How long (ms) after closing a Ruimte a press on the same spot still belongs to the closing double-click. */
+const DOUBLE_CLICK_MS = 500;
+
 /** Draws a Ruimte: click corner after corner; a click on the first corner, a double-click or Enter closes it. */
 export class RoomTool implements CanvasTool {
   /** The corners clicked so far. */
@@ -14,6 +19,8 @@ export class RoomTool implements CanvasTool {
   snapMark = $state<Point | null>(null);
   /** The pointer is on the first corner, so a click closes the Ruimte. */
   closing = $state(false);
+  /** Where and when the last Ruimte was closed by a click, so the rest of a double-click there is ignored. */
+  private closedAt: { point: Point; time: number } | null = null;
 
   get hint(): string {
     if (this.corners.length === 0) return 'Ruimte: klik de eerste hoek (muurhoeken trekken aan).';
@@ -22,16 +29,19 @@ export class RoomTool implements CanvasTool {
   }
 
   pointerDown(p: CanvasPointer): PressResult {
+    const sameSpot = SAME_SPOT_PX * p.cmPerScreenPx;
     if (this.onFirstCorner(p)) {
+      this.closedAt = { point: p.world, time: Date.now() };
       this.close();
       return null;
     }
+    const c = this.closedAt;
+    this.closedAt = null;
+    if (c && this.corners.length === 0 && Date.now() - c.time < DOUBLE_CLICK_MS && dist(c.point, p.world) <= sameSpot)
+      return null;
     const s = this.snap(p);
     const last = this.corners.at(-1);
-    // a new outline drops the selection, so Backspace (last corner away) cannot also delete the Ruimte drawn before
-    if (!last) store.selection = null;
-    // the presses of a double-click land on the same spot: one corner
-    if (!last || dist(last, s) >= 1) this.corners = [...this.corners, s];
+    if (!last || dist(last, s) > sameSpot) this.corners = [...this.corners, s];
     return null;
   }
 

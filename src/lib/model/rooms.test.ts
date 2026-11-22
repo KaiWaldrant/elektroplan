@@ -7,6 +7,7 @@ import {
   haArea,
   moveRoomCorner,
   removeRoom,
+  renameRoom,
   roomAt,
   roomOf,
   setHaArea,
@@ -58,28 +59,42 @@ describe('toSnakeCase', () => {
 
 describe('haArea', () => {
   it('defaults to the name in snake_case, and follows a rename', () => {
-    const room = addRoom(createFloor('x'), 'Slaapkamer 1', rect(0, 0, 10, 10));
+    const f = createFloor('x');
+    const room = addRoom(f, 'Slaapkamer 1', rect(0, 0, 10, 10));
     expect(haArea(room)).toBe('slaapkamer_1');
-    room.name = 'Slaapkamer Noor';
+    renameRoom(f, room.id, 'Slaapkamer Noor');
     expect(haArea(room)).toBe('slaapkamer_noor');
   });
 
   it('uses its own HA-area once set, in snake_case', () => {
-    const room = addRoom(createFloor('x'), 'Slaapkamer 1', rect(0, 0, 10, 10));
-    setHaArea(room, 'Master Bedroom');
+    const f = createFloor('x');
+    const room = addRoom(f, 'Slaapkamer 1', rect(0, 0, 10, 10));
+    setHaArea(f, room.id, 'Master Bedroom');
     expect(haArea(room)).toBe('master_bedroom');
-    room.name = 'Grote slaapkamer';
+    renameRoom(f, room.id, 'Grote slaapkamer');
     expect(haArea(room)).toBe('master_bedroom');
   });
 
   it('goes back to the default when emptied or set to the default', () => {
-    const room = addRoom(createFloor('x'), 'Bureau', rect(0, 0, 10, 10));
-    setHaArea(room, 'office');
-    setHaArea(room, '  ');
-    expect(room.haArea).toBeUndefined();
-    setHaArea(room, 'office');
-    setHaArea(room, 'Bureau');
-    expect(room.haArea).toBeUndefined();
+    const f = createFloor('x');
+    const room = addRoom(f, 'Bureau', rect(0, 0, 10, 10));
+    setHaArea(f, room.id, 'office');
+    setHaArea(f, room.id, '  ');
+    expect(room.haAreaOverride).toBeUndefined();
+    setHaArea(f, room.id, 'office');
+    setHaArea(f, room.id, 'Bureau');
+    expect(room.haAreaOverride).toBeUndefined();
+  });
+});
+
+describe('renameRoom', () => {
+  it('trims the name and refuses an empty one', () => {
+    const f = createFloor('x');
+    const room = addRoom(f, 'Bureau', rect(0, 0, 10, 10));
+    renameRoom(f, room.id, '  Werkkamer ');
+    expect(room.name).toBe('Werkkamer');
+    renameRoom(f, room.id, '   ');
+    expect(room.name).toBe('Werkkamer');
   });
 });
 
@@ -157,13 +172,22 @@ describe('roomOf', () => {
     expect(d.roomId).toBeUndefined();
   });
 
-  it('is undefined when the chosen Ruimte is gone with its floor', () => {
+  it('forgets the chosen Ruimte when its floor is deleted', () => {
     const p = house();
-    p.floors.reverse(); // so floor f0 is not the last one
     const d = unplaced(p);
     setRoomOfUnplaced(p, 'u', 'living');
     removeFloor(p, 'f0');
     expect(roomOf(p, d)).toBeUndefined();
+    expect(d.roomId).toBeUndefined();
+  });
+
+  it('keeps a chosen Ruimte on another floor when a floor is deleted', () => {
+    const p = house();
+    addRoom(p.floors[1], 'Zolder', rect(0, 0, 100, 100)).id = 'attic';
+    const d = unplaced(p);
+    setRoomOfUnplaced(p, 'u', 'attic');
+    removeFloor(p, 'f0');
+    expect(roomOf(p, d)?.id).toBe('attic');
   });
 });
 

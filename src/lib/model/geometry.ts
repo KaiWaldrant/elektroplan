@@ -100,6 +100,9 @@ export function bounds(points: Point[]): { min: Point; max: Point } | null {
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
+/** A point rounded to whole cm. */
+export const roundPoint = (p: Point): Point => ({ x: Math.round(p.x), y: Math.round(p.y) });
+
 /** Size of the plan background in world cm. */
 export function backgroundExtent(bg: Background): { width: number; height: number } {
   return { width: bg.widthPx * bg.cmPerPx, height: bg.heightPx * bg.cmPerPx };

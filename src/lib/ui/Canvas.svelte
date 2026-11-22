@@ -184,7 +184,8 @@
   }
 </script>
 
-<svelte:window {onkeydown} onkeyup={(e) => e.key === ' ' && (spaceDown = false)} />
+<!-- capture: the active tool sees a key before App's global shortcuts (Backspace removes a corner, not the selection) -->
+<svelte:window onkeydowncapture={onkeydown} onkeyup={(e) => e.key === ' ' && (spaceDown = false)} />
 
 <div
   class="canvas"

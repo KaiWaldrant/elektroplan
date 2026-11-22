@@ -16,7 +16,7 @@
     setGangFinish,
     setGangOrientation,
   } from '../model/gangs';
-  import { haArea, roomOf, selectedRoom, setHaArea, toSnakeCase } from '../model/rooms';
+  import { haArea, renameRoom, roomOf, selectedRoom, setHaArea, toSnakeCase } from '../model/rooms';
   import type { Orientation } from '../model/types';
 
   const floor = $derived(store.floor);
@@ -117,30 +117,24 @@
           value={room.name}
           onchange={(e) => {
             const id = room?.id;
-            const v = (e.target as HTMLInputElement).value.trim();
-            if (id && v && v !== room?.name)
-              store.mutateFloor((f) => {
-                const r = f.rooms.find((x) => x.id === id);
-                if (r) r.name = v;
-              });
-            else (e.target as HTMLInputElement).value = room?.name ?? '';
+            const input = e.target as HTMLInputElement;
+            if (id && input.value.trim() && input.value.trim() !== room?.name)
+              store.mutateFloor((f) => renameRoom(f, id, input.value));
+            input.value = room?.name ?? ''; // an emptied field shows the name again
           }}
         />
       </label>
       <label>
         Home Assistant-area
         <input
-          value={room.haArea ?? ''}
+          value={room.haAreaOverride ?? ''}
           placeholder={toSnakeCase(room.name)}
           onchange={(e) => {
             const id = room?.id;
             const input = e.target as HTMLInputElement;
-            if (id)
-              store.mutateFloor((f) => {
-                const r = f.rooms.find((x) => x.id === id);
-                if (r) setHaArea(r, input.value);
-              });
-            input.value = room?.haArea ?? '';
+            if (id && toSnakeCase(input.value) !== (room?.haAreaOverride ?? toSnakeCase(room?.name ?? '')))
+              store.mutateFloor((f) => setHaArea(f, id, input.value));
+            input.value = room?.haAreaOverride ?? '';
           }}
         />
       </label>

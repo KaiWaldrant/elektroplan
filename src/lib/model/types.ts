@@ -49,8 +49,8 @@ export interface Room {
   name: string;
   /** The outline, corner after corner in world cm (closed: the last corner joins the first). */
   polygon: Point[];
-  /** Home Assistant area id in snake_case; absent means the name in snake_case (see rooms.ts). */
-  haArea?: string;
+  /** Home Assistant area id in snake_case set by hand; absent means the name in snake_case (see haArea() in rooms.ts). */
+  haAreaOverride?: string;
 }
 
 /** Where a Toestel sits on a Verdieping's plan. */

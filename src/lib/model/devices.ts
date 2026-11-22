@@ -1,16 +1,15 @@
 import { isWallMounted } from './deviceTypes';
-import { dist, projectOnSegment, wallNormal } from './geometry';
+import { dist, projectOnSegment, roundPoint, wallNormal } from './geometry';
 import { uid } from './project';
 import type { Device, DeviceKind, Id, PlacedDevice, Point, Project, Selection, Wall } from './types';
 
 /** Size of a Toestel symbol on the plan, in cm (#10: 30 cm across, about 6 mm at 1:50). */
 export const SYMBOL_CM = 30;
 
-const round = (p: Point): Point => ({ x: Math.round(p.x), y: Math.round(p.y) });
 
 /** Add a Toestel of `kind` on floor `floorId` at `at` (rounded to whole cm), turned `rotation` degrees, and return it. */
 export function placeDevice(project: Project, floorId: Id, kind: DeviceKind, at: Point, rotation = 0): Device {
-  const device: Device = { ...kind, id: uid(), placement: { floorId, at: round(at), rotation } };
+  const device: Device = { ...kind, id: uid(), placement: { floorId, at: roundPoint(at), rotation } };
   project.devices.push(device);
   return device;
 }
@@ -57,7 +56,7 @@ export function hitDevice(devices: Device[], floorId: Id, p: Point, slack: numbe
  */
 export function moveDevice(devices: Device[], id: Id, at: Point, rotation?: number): void {
   const d = findDevice(devices, id);
-  if (d?.placement) d.placement = { ...d.placement, at: round(at), rotation: rotation ?? d.placement.rotation };
+  if (d?.placement) d.placement = { ...d.placement, at: roundPoint(at), rotation: rotation ?? d.placement.rotation };
 }
 
 /** Turn a placed Toestel 90° clockwise (mutates the device). */
@@ -109,7 +108,7 @@ export function snapToWall(walls: Wall[], p: Point, tolerance: number, standoff 
   if ((p.x - on.x) * n.x + (p.y - on.y) * n.y < 0) n = { x: -n.x, y: -n.y };
   const out = wall.thickness / 2 + standoff;
   const rotation = (((Math.atan2(n.x, -n.y) * 180) / Math.PI) % 360 + 360) % 360;
-  return { at: round({ x: on.x + n.x * out, y: on.y + n.y * out }), rotation: Math.round(rotation * 100) / 100 };
+  return { at: roundPoint({ x: on.x + n.x * out, y: on.y + n.y * out }), rotation: Math.round(rotation * 100) / 100 };
 }
 
 /** Delete a Toestel. */

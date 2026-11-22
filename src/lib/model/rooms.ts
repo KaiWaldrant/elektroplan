@@ -1,8 +1,6 @@
-import { pointInPolygon, polygonArea } from './geometry';
+import { pointInPolygon, polygonArea, roundPoint } from './geometry';
 import { uid } from './project';
 import type { Device, Floor, Id, Point, Project, Room, Selection } from './types';
-
-const round = (p: Point): Point => ({ x: Math.round(p.x), y: Math.round(p.y) });
 
 /**
  * A name as a Home Assistant id: lower case, accents dropped, every run of other characters one
@@ -17,21 +15,29 @@ export function toSnakeCase(name: string): string {
     .replace(/^_+|_+$/g, '');
 }
 
-/** The Home Assistant area of a Ruimte: its own, or else its name in snake_case. */
+/** The Home Assistant area of a Ruimte: the one set by hand, or else its name in snake_case. */
 export function haArea(room: Room): string {
-  return room.haArea ?? toSnakeCase(room.name);
+  return room.haAreaOverride ?? toSnakeCase(room.name);
 }
 
-/** Set a Ruimte's own HA-area (made snake_case); empty or equal to the default clears it, so it follows the name again. */
-export function setHaArea(room: Room, value: string): void {
+/** Set a Ruimte's HA-area by hand (made snake_case); empty or equal to the default clears it, so it follows the name again. */
+export function setHaArea(floor: Floor, roomId: Id, value: string): void {
+  const room = findRoom(floor, roomId);
+  if (!room) return;
   const area = toSnakeCase(value);
-  if (area && area !== toSnakeCase(room.name)) room.haArea = area;
-  else delete room.haArea;
+  if (area && area !== toSnakeCase(room.name)) room.haAreaOverride = area;
+  else delete room.haAreaOverride;
+}
+
+/** Rename a Ruimte (trimmed); an empty name is refused. */
+export function renameRoom(floor: Floor, roomId: Id, name: string): void {
+  const room = findRoom(floor, roomId);
+  if (room && name.trim()) room.name = name.trim();
 }
 
 /** Add a Ruimte with the given outline (corners rounded to whole cm) to a floor; no name gives "Ruimte n". */
 export function addRoom(floor: Floor, name: string, polygon: Point[]): Room {
-  const room: Room = { id: uid(), name: name.trim() || `Ruimte ${floor.rooms.length + 1}`, polygon: polygon.map(round) };
+  const room: Room = { id: uid(), name: name.trim() || `Ruimte ${floor.rooms.length + 1}`, polygon: polygon.map(roundPoint) };
   floor.rooms.push(room);
   return room;
 }
@@ -86,13 +92,13 @@ export function removeRoom(project: Project, roomId: Id): void {
 /** Put corner `index` of a Ruimte on `to` (whole cm). */
 export function moveRoomCorner(floor: Floor, roomId: Id, index: number, to: Point): void {
   const r = findRoom(floor, roomId);
-  if (r && index >= 0 && index < r.polygon.length) r.polygon[index] = round(to);
+  if (r && index >= 0 && index < r.polygon.length) r.polygon[index] = roundPoint(to);
 }
 
 /** Move a Ruimte by (dx, dy) from its outline when the drag began (`polygonAtStart`), to whole cm. */
 export function translateRoom(floor: Floor, roomId: Id, polygonAtStart: Point[], dx: number, dy: number): void {
   const r = findRoom(floor, roomId);
-  if (r) r.polygon = polygonAtStart.map((p) => round({ x: p.x + dx, y: p.y + dy }));
+  if (r) r.polygon = polygonAtStart.map((p) => roundPoint({ x: p.x + dx, y: p.y + dy }));
 }
 
 /** The selected Ruimte, if it is on this floor. */

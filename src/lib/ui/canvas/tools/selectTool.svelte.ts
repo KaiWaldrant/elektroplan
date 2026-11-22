@@ -51,7 +51,7 @@ export class SelectTool implements CanvasTool {
   joinTarget = $state<Id | null>(null);
 
   readonly hint =
-    'Klik een muur, toestel of ruimte om te selecteren; sleep om te verplaatsen (een los toestel op een ander vormt een combinatie); R draait een toestel. Sleep de achtergrond of gebruik het muiswiel om te pannen/zoomen.';
+    'Klik een muur, toestel of ruimte om te selecteren; sleep om te verplaatsen (een ruimte pas als ze geselecteerd is; een los toestel op een ander vormt een combinatie); R draait een toestel. Sleep de achtergrond of gebruik het muiswiel om te pannen/zoomen.';
   readonly snapMark = null;
 
   pointerDown(p: CanvasPointer): PressResult {
@@ -155,14 +155,16 @@ export class SelectTool implements CanvasTool {
     this.joinTarget = null;
   }
 
-  /** A press on no Toestel or wall: select and drag the Ruimte there, or pan when there is none. */
+  /**
+   * A press on no Toestel or wall: an already selected Ruimte there is dragged; otherwise the Ruimte
+   * there (if any) is selected and the press pans, so Ruimtes covering the plan don't block panning.
+   */
   private pressRoom(p: CanvasPointer): PressResult {
     const room = roomAt(store.floor, p.world);
-    if (!room) {
-      store.selection = null;
+    if (!room || selectedRoom(store.floor, store.selection)?.id !== room.id) {
+      store.selection = room ? { kind: 'room', id: room.id } : null;
       return 'pan';
     }
-    store.selection = { kind: 'room', id: room.id };
     const polygonAtStart = $state.snapshot(room.polygon) as Point[];
     this.drag = { kind: 'room', roomId: room.id, pointerStart: p.world, polygonAtStart, moved: false };
     return 'capture';

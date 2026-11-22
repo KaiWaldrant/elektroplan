@@ -27,9 +27,15 @@ export function blobKeys(p: Project): Id[] {
   return p.floors.flatMap((f) => (f.background ? [f.background.blobKey] : []));
 }
 
-/** Delete a floor together with the Toestellen placed on it; the last floor is never deleted. */
+/**
+ * Delete a floor together with the Toestellen placed on it; unplaced Toestellen forget a Ruimte
+ * chosen on it. The last floor is never deleted.
+ */
 export function removeFloor(project: Project, floorId: Id): void {
-  if (project.floors.length <= 1) return;
+  const floor = project.floors.find((f) => f.id === floorId);
+  if (!floor || project.floors.length <= 1) return;
+  const goneRooms = new Set(floor.rooms.map((r) => r.id));
   project.floors = project.floors.filter((f) => f.id !== floorId);
   project.devices = project.devices.filter((d) => d.placement?.floorId !== floorId);
+  for (const d of project.devices) if (d.roomId && goneRooms.has(d.roomId)) delete d.roomId;
 }
